@@ -10,7 +10,7 @@ v.close()
 readme = os.path.join(os.path.dirname(__file__), 'README.md')
 
 
-setup(name='sqlalchemy-firebird',
+setup(name='sqlalchemy_firebird',
       version=VERSION,
       description="Firebird for SQLAlchemy",
       long_description=open(readme).read(),
@@ -44,7 +44,7 @@ setup(name='sqlalchemy-firebird',
       zip_safe=False,
       entry_points={
           'sqlalchemy.dialects': [
-              'firebird.fdb = sqlalchemy_firebird.fdb:FirebirdDialect_fdb',
+              'firebird2 = sqlalchemy_firebird.fdb:FirebirdDialect_fdb',
           ]
       },
 )

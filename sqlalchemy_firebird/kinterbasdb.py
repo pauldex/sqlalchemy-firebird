@@ -42,8 +42,8 @@ from re import match
 
 from .base import FBDialect
 from .base import FBExecutionContext
-from ... import types as sqltypes
-from ... import util
+from sqlalchemy import types as sqltypes
+from sqlalchemy import util
 
 
 class _kinterbasdb_numeric(object):

@@ -30,6 +30,8 @@ from sqlalchemy.testing import fixtures
 from sqlalchemy.testing.mock import call
 from sqlalchemy.testing.mock import Mock
 
+from sqlalchemy.testing.suite import *
+
 # This is the original test-firebird.py from sqlalcheny-master from
 
 class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):

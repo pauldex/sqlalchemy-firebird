@@ -62,7 +62,7 @@ accept every argument that Kinterbasdb does.
 """  # noqa
 
 from .kinterbasdb import FBDialect_kinterbasdb
-from ... import util
+from sqlalchemy import util
 
 
 class FBDialect_fdb(FBDialect_kinterbasdb):
