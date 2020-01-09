@@ -1,4 +1,5 @@
 .idea/
 _venv/
+__pycache__/
 /venv/
 /test.cfg

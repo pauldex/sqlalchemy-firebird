@@ -255,17 +255,31 @@ ID DOM_ID /* INTEGER NOT NULL */ default 0 )
         table_dom = Table("def_error", metadata, autoload=True)
         table_nodom = Table("def_error_nodom", metadata, autoload=True)
 
+        for col in table_dom.c:
+            if col.name.rstrip() == 'INTERESSI':
+                col_dom_interessi = col
+            elif col.name.rstrip() == 'RITENUTA':
+                col_dom_ritenuta = col
+            elif col.name.rstrip() == 'STAMPATO_MODULO':
+                col_dom_stampato_modulo = col
+        for col in table_nodom.c:
+            if col.name.rstrip() == 'INTERESSI':
+                col_nodom_interessi = col
+            elif col.name.rstrip() == 'RITENUTA':
+                col_nodom_ritenuta = col
+            elif col.name.rstrip() == 'STAMPATO_MODULO':
+                col_nodom_stampato_modulo = col
         eq_(
-            table_dom.c.interessi.server_default.arg.text,
-            table_nodom.c.interessi.server_default.arg.text,
+            col_dom_interessi.server_default.arg.text,
+            col_nodom_interessi.server_default.arg.text,
         )
         eq_(
-            table_dom.c.ritenuta.server_default.arg.text,
-            table_nodom.c.ritenuta.server_default.arg.text,
+            col_dom_ritenuta.server_default.arg.text,
+            col_nodom_ritenuta.server_default.arg.text,
         )
         eq_(
-            table_dom.c.stampato_modulo.server_default.arg.text,
-            table_nodom.c.stampato_modulo.server_default.arg.text,
+            col_dom_stampato_modulo.server_default.arg.text,
+            col_nodom_stampato_modulo.server_default.arg.text,
         )
 
     def test_intermixed_comment(self):
@@ -273,14 +287,20 @@ ID DOM_ID /* INTEGER NOT NULL */ default 0 )
 
         table_a = Table("a", metadata, autoload=True)
 
-        eq_(table_a.c.id.server_default.arg.text, "0")
+        for col in table_a.c:
+            if col.name.rstrip() == 'ID':
+                break
+        eq_(col.server_default.arg.text, "0")
 
     def test_lowercase_default_name(self):
         metadata = MetaData(testing.db)
 
         table_b = Table("b", metadata, autoload=True)
 
-        eq_(table_b.c.id.server_default.arg.text, "0")
+        for col in table_b.c:
+            if col.name.rstrip() == 'ID':
+                break
+        eq_(col.server_default.arg.text, "0")
 
 
 class CompileTest(fixtures.TestBase, AssertsCompiledSQL):

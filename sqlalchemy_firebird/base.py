@@ -788,7 +788,7 @@ class FBDialect(default.DefaultDialect):
     def get_columns(self, connection, table_name, schema=None, **kw):
         # Query to extract the details of all the fields of the given table
         tblqry = """
-        SELECT TRIM(r.rdb$field_name) AS fname,
+        SELECT r.rdb$field_name AS fname,
                         r.rdb$null_flag AS null_flag,
                         t.rdb$type_name AS ftype,
                         f.rdb$field_sub_type AS stype,
