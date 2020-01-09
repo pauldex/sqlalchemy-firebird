@@ -4,13 +4,10 @@ from sqlalchemy.testing import exclusions
 
 
 class Requirements(SuiteRequirements):
-    pass
-
-    # this will be where we tweak test requirements based on database/dbapi
-    # capabilities, e.g.,
-    #
-    # @property
-    # def nullable_booleans(self):
-    #     """Target database allows boolean columns to store NULL."""
-    #     # Access Yes/No doesn't allow null
-    #     return exclusions.closed()
+    @property
+    def temp_table_reflection(self):
+        """Target database supports CREATE TEMPORARY TABLE."""
+        # For now, skip these tests until we see how
+        # https://github.com/sqlalchemy/sqlalchemy/issues/5085
+        # plays out.
+        return exclusions.closed()
