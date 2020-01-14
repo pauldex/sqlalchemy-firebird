@@ -2,3 +2,7 @@
 _venv/
 /venv/
 /test.cfg
+/test/test.cfg
+*.html
+sqlalchemy_firebird/__pycache__/
+test/__pycache__/
