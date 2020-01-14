@@ -25,7 +25,7 @@ from . import fdb  # noqa
 
 __version__ = '1.0.3'
 
-# base.dialect = dialect = fdb.dialect
+base.dialect = dialect = fdb.dialect
 
 _registry.register("firebird2", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
 
