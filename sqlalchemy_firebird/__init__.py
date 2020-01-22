@@ -20,6 +20,7 @@ from .base import TIMESTAMP
 from .base import VARCHAR
 from . import base  # noqa
 from . import fdb  # noqa
+from . import provision  # noqa
 # Not supporting kinterbase
 # from . import kinterbasdb  # noqa
 

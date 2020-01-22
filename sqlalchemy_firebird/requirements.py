@@ -5,9 +5,19 @@ from sqlalchemy.testing import exclusions
 
 class Requirements(SuiteRequirements):
     @property
-    def temp_table_reflection(self):
-        """Target database supports CREATE TEMPORARY TABLE."""
-        # For now, skip these tests until we see how
-        # https://github.com/sqlalchemy/sqlalchemy/issues/5085
-        # plays out.
+    def implicitly_named_constraints(self):
+        """target database supports constraints without an explicit name."""
+        return exclusions.open()
+
+    @property
+    def indexes_with_ascdesc(self):
+        """target database supports CREATE INDEX with column-level ASC/DESC."""
+        return exclusions.closed()
+
+    @property
+    def temp_table_names(self):
+        return exclusions.open()
+
+    @property
+    def unique_constraint_reflection(self):
         return exclusions.closed()

@@ -700,10 +700,11 @@ class FBDialect(default.DefaultDialect):
         # this one, using view_blr, is at the Firebird FAQ among other places:
         # http://www.firebirdfaq.org/faq174/
         s = """
-        select rdb$relation_name
+        select TRIM(rdb$relation_name) AS relation_name
         from rdb$relations
         where rdb$view_blr is null
-        and (rdb$system_flag is null or rdb$system_flag = 0);
+        and (rdb$system_flag is null or rdb$system_flag = 0)
+        and rdb$relation_type = 0;
         """
 
         # the other query is this one.  It's not clear if there's really
@@ -714,6 +715,17 @@ class FBDialect(default.DefaultDialect):
         # FROM rdb$relation_fields
         # WHERE rdb$system_flag=0 AND rdb$view_context IS NULL
 
+        return [self.normalize_name(row[0]) for row in connection.execute(s)]
+
+    @reflection.cache
+    def get_temp_table_names(self, connection, schema=None, **kw):
+        s = """
+        select TRIM(rdb$relation_name) AS relation_name
+        from rdb$relations
+        where rdb$view_blr is null
+        and (rdb$system_flag is null or rdb$system_flag = 0)
+        and rdb$relation_type = 5;
+        """
         return [self.normalize_name(row[0]) for row in connection.execute(s)]
 
     @reflection.cache
@@ -745,7 +757,7 @@ class FBDialect(default.DefaultDialect):
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
         # Query to extract the PK/FK constrained fields of the given table
         keyqry = """
-        SELECT se.rdb$field_name AS fname
+        SELECT TRIM(se.rdb$field_name) AS fname
         FROM rdb$relation_constraints rc
              JOIN rdb$index_segments se ON rc.rdb$index_name=se.rdb$index_name
         WHERE rc.rdb$constraint_type=? AND rc.rdb$relation_name=?
@@ -814,12 +826,9 @@ class FBDialect(default.DefaultDialect):
 
         tablename = self.denormalize_name(table_name)
         # get all of the fields for this table
-        c = connection.execute(tblqry, [tablename])
+        c = [dict(row) for row in connection.execute(tblqry, [tablename])]
         cols = []
-        while True:
-            row = c.fetchone()
-            if row is None:
-                break
+        for row in c:
             name = self.normalize_name(row["fname"])
             orig_colname = row["fname"]
 
@@ -888,10 +897,10 @@ class FBDialect(default.DefaultDialect):
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
         # Query to extract the details of each UK/FK of the given table
         fkqry = """
-        SELECT rc.rdb$constraint_name AS cname,
-               cse.rdb$field_name AS fname,
-               ix2.rdb$relation_name AS targetrname,
-               se.rdb$field_name AS targetfname
+        SELECT TRIM(rc.rdb$constraint_name) AS cname,
+               TRIM(cse.rdb$field_name) AS fname,
+               TRIM(ix2.rdb$relation_name) AS targetrname,
+               TRIM(se.rdb$field_name) AS targetfname
         FROM rdb$relation_constraints rc
              JOIN rdb$indices ix1 ON ix1.rdb$index_name=rc.rdb$index_name
              JOIN rdb$indices ix2 ON ix2.rdb$index_name=ix1.rdb$foreign_key
@@ -931,9 +940,9 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
         qry = """
-        SELECT ix.rdb$index_name AS index_name,
+        SELECT TRIM(ix.rdb$index_name) AS index_name,
                ix.rdb$unique_flag AS unique_flag,
-               ic.rdb$field_name AS field_name
+               TRIM(ic.rdb$field_name) AS field_name
         FROM rdb$indices ix
              JOIN rdb$index_segments ic
                   ON ix.rdb$index_name=ic.rdb$index_name
