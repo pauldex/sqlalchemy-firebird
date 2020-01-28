@@ -20,4 +20,20 @@ class Requirements(SuiteRequirements):
 
     @property
     def unique_constraint_reflection(self):
+        # TODO: Research ways to support this in Firebird
+        return exclusions.closed()
+
+    @property
+    def tuple_in(self):
+        """ Supports queries like:
+        SELECT some_table.id FROM some_table
+        WHERE (some_table.x, some_table.z) IN ((2, 'z2'), (3, 'z3'), (4, 'z4'))
+
+        Firebird would have to change the query to something like:
+        SELECT some_table.id FROM some_table
+        WHERE (some_table.x = 2 and some_table.z = 'z2')
+           OR (some_table.x = 3 and some_table.z = 'z3')
+           OR (some_table.x = 4 and some_table.z = 'z4')
+        """
+        # TODO: Research ways to support this in Firebird
         return exclusions.closed()
