@@ -438,6 +438,11 @@ class FBCompiler(sql.compiler.SQLCompiler):
     # def visit_notcontains_op_binary(self, binary, operator, **kw):
     # cant use NOT CONTAINING b.c. it's case insensitive.
 
+    def visit_empty_set_expr(self, type_):
+        # FB equivalent of Oracle's FROM DUAL courtesy of
+        # http://www.firebirdfaq.org/faq30/
+        return "SELECT 1 FROM RDB$DATABASE WHERE 0=1"
+
     def visit_now_func(self, fn, **kw):
         return "CURRENT_TIMESTAMP"
 
