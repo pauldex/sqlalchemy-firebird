@@ -37,7 +37,7 @@ from sqlalchemy.testing.suite import *
 class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
     "Test Firebird domains"
 
-    __only_on__ = "firebird"
+    __only_on__ = "firebird2"
 
     @classmethod
     def setup_class(cls):
@@ -142,7 +142,7 @@ class BuggyDomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
     """Test Firebird domains (and some other reflection bumps),
     see [ticket:1663] and http://tracker.firebirdsql.org/browse/CORE-356"""
 
-    __only_on__ = "firebird"
+    __only_on__ = "firebird2"
 
     # NB: spacing and newlines are *significant* here!
     # PS: this test is superfluous on recent FB, where the issue 356 is
@@ -480,7 +480,7 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
 
 
 class TypesTest(fixtures.TestBase):
-    __only_on__ = "firebird"
+    __only_on__ = "firebird2"
 
     @testing.provide_metadata
     def test_infinite_float(self):
@@ -493,7 +493,7 @@ class TypesTest(fixtures.TestBase):
 
 class MiscTest(fixtures.TestBase):
 
-    __only_on__ = "firebird"
+    __only_on__ = "firebird2"
 
     @testing.provide_metadata
     def test_strlen(self):
