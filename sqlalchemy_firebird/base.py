@@ -79,6 +79,7 @@ the SQLAlchemy ``returning()`` method, such as::
 import datetime
 
 from sqlalchemy import exc
+from sqlalchemy import schema as sa_schema
 from sqlalchemy import sql
 from sqlalchemy import types as sqltypes
 from sqlalchemy import util
@@ -597,6 +598,16 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
             generated.sqltext, include_table=False, literal_binds=True
         )
 
+    def post_create_table(self, table):
+        table_opts = []
+        opts = table.dialect_options["firebird2"]
+
+        if opts["on_commit"]:
+            on_commit_options = opts["on_commit"].replace("_", " ").upper()
+            table_opts.append("\n ON COMMIT %s" % on_commit_options)
+
+        return "".join(table_opts)
+
 
 class FBIdentifierPreparer(sql.compiler.IdentifierPreparer):
     """Install Firebird specific reserved words."""
@@ -624,7 +635,7 @@ class FBExecutionContext(default.DefaultExecutionContext):
 class FBDialect(default.DefaultDialect):
     """Firebird dialect"""
 
-    name = "firebird"
+    name = "firebird2"
 
     max_identifier_length = 31
 
@@ -647,7 +658,12 @@ class FBDialect(default.DefaultDialect):
     colspecs = colspecs
     ischema_names = ischema_names
 
-    construct_arguments = []
+    construct_arguments = [
+        (
+            sa_schema.Table,
+            {"on_commit": None},
+        ),
+    ]
 
     # defaults to dialect ver. 3,
     # will be autodetected off upon
@@ -729,7 +745,7 @@ class FBDialect(default.DefaultDialect):
         from rdb$relations
         where rdb$view_blr is null
         and (rdb$system_flag is null or rdb$system_flag = 0)
-        and rdb$relation_type = 5;
+        and rdb$relation_type in (4, 5);
         """
         return [self.normalize_name(row[0]) for row in connection.execute(s)]
 

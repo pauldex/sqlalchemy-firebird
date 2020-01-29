@@ -5,5 +5,5 @@ from sqlalchemy.testing.provision import temp_table_keyword_args
 def _firebird_temp_table_keyword_args(cfg, eng):
     return {
         "prefixes": ["GLOBAL TEMPORARY"],
-        "oracle_on_commit": "PRESERVE ROWS",
+        "firebird2_on_commit": "PRESERVE ROWS",
     }
