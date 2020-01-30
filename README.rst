@@ -6,6 +6,7 @@ An external SQLAlchemy dialect for Firebird
     :target: https://github.com/psf/black
 
 | This will replace SQLAlchemy's internal Firebird dialect which is not being maintained.
+|
 
 Sample connection URI:
 
