@@ -659,10 +659,7 @@ class FBDialect(default.DefaultDialect):
     ischema_names = ischema_names
 
     construct_arguments = [
-        (
-            sa_schema.Table,
-            {"on_commit": None},
-        ),
+        (sa_schema.Table, {"on_commit": None},),
     ]
 
     # defaults to dialect ver. 3,
@@ -952,7 +949,9 @@ class FBDialect(default.DefaultDialect):
             if not fk["name"]:
                 fk["name"] = cname
                 fk["referred_table"] = self.normalize_name(row["targetrname"])
-            fk["constrained_columns"].append(self.normalize_name(row["fname"]))
+            fk["constrained_columns"].append(
+                self.normalize_name(row["fname"])
+            )
             fk["referred_columns"].append(
                 self.normalize_name(row["targetfname"])
             )

@@ -1,0 +1,13 @@
+# SQLAlchemy-Firebird configuration for Black.
+
+[tool.black]
+line-length = 78
+target-version = ['py36', 'py37', 'py38']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.github
+  | \.pytest_cache
+  | _venv
+)/
+'''

@@ -1,10 +1,11 @@
 sqlalchemy-firebird
 ===================
+An external SQLAlchemy dialect for Firebird
+-------------------------------------------
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
 
-An external SQLAlchemy dialect for Firebird.
-
-This will replace SQLAlchemy's internal Firebird dialect which is not
-being maintained.
+| This will replace SQLAlchemy's internal Firebird dialect which is not being maintained.
 
 Sample connection URI:
 
