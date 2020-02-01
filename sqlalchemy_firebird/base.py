@@ -555,9 +555,12 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
     def get_column_specification(self, column, **kwargs):
         colspec = self.preparer.format_column(column)
 
-        # type is not accepted in a computed column
+        # FB is okay with or without an explicit type for a computed column.
+        # However, CompileTest.test_column_computed wants the type in there.
         if column.computed is not None:
-            colspec += " " + self.process(column.computed)
+            colspec += (
+                " " + str(column.type) + " " + self.process(column.computed)
+            )
         else:
             colspec += " " + self.dialect.type_compiler.process(
                 column.type, type_expression=column
