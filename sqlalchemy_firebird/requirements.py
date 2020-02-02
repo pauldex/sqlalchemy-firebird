@@ -36,9 +36,8 @@ class Requirements(SuiteRequirements):
 
     @property
     def unicode_data(self):
-        # TODO: Verify that fdb really simply cannot handle string literals
-        #       with Unicode supplementary characters (e.g., emoji)
-        return exclusions.closed()
+        # assumes ?charset=UTF8 in connection URI
+        return exclusions.open()
 
     @property
     def unique_constraint_reflection(self):
