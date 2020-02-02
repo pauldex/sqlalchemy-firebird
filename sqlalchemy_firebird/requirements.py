@@ -5,6 +5,18 @@ from sqlalchemy.testing import exclusions
 
 class Requirements(SuiteRequirements):
     @property
+    def autoincrement_insert(self):
+        return exclusions.closed()
+
+    @property
+    def datetime_microseconds(self):
+        return exclusions.closed()
+
+    @property
+    def duplicate_key_raises_integrity_error(self):
+        return exclusions.closed()
+
+    @property
     def implicitly_named_constraints(self):
         """target database supports constraints without an explicit name."""
         return exclusions.open()
@@ -17,6 +29,16 @@ class Requirements(SuiteRequirements):
     @property
     def temp_table_names(self):
         return exclusions.open()
+
+    @property
+    def time_microseconds(self):
+        return exclusions.closed()
+
+    @property
+    def unicode_data(self):
+        # TODO: Verify that fdb really simply cannot handle string literals
+        #       with Unicode supplementary characters (e.g., emoji)
+        return exclusions.closed()
 
     @property
     def unique_constraint_reflection(self):
