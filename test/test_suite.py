@@ -594,18 +594,6 @@ class ArgumentTest(fixtures.TestBase):
         engine = engines.testing_engine("firebird+%s://" % type_, options=kw)
         return engine
 
-    def test_retaining_flag_default_kinterbasdb(self):
-        engine = self._engine("kinterbasdb")
-        self._assert_retaining(engine, False)
-
-    def test_retaining_flag_true_kinterbasdb(self):
-        engine = self._engine("kinterbasdb", retaining=True)
-        self._assert_retaining(engine, True)
-
-    def test_retaining_flag_false_kinterbasdb(self):
-        engine = self._engine("kinterbasdb", retaining=False)
-        self._assert_retaining(engine, False)
-
     def test_retaining_flag_default_fdb(self):
         engine = self._engine("fdb")
         self._assert_retaining(engine, False)
