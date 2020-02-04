@@ -6,3 +6,5 @@ _venv/
 *.html
 sqlalchemy_firebird/__pycache__/
 test/__pycache__/
+
+*.log
