@@ -17,7 +17,8 @@ from sqlalchemy import types as sqltypes
 from sqlalchemy import Unicode
 from sqlalchemy import update
 from sqlalchemy import VARCHAR
-from sqlalchemy_firebird import base as firebird
+from sqlalchemy_firebird import fdb as firebird
+from sqlalchemy_firebird import base as fb_base
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import column
 from sqlalchemy.sql import table
@@ -304,7 +305,7 @@ ID DOM_ID /* INTEGER NOT NULL */ default 0 )
 
 class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
 
-    __dialect__ = firebird.FBDialect()
+    __dialect__ = firebird.FBDialect_fdb()
 
     def test_alias(self):
         t = table("sometable", column("col1"), column("col2"))
@@ -314,7 +315,7 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
             "SELECT sometable_1.col1, sometable_1.col2 "
             "FROM sometable AS sometable_1",
         )
-        dialect = firebird.FBDialect()
+        dialect = self.__dialect__
         dialect._version_two = False
         self.assert_compile(
             s,
@@ -439,16 +440,16 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         """Exercise CHARACTER SET  options on string types."""
 
         columns = [
-            (firebird.CHAR, [1], {}, "CHAR(1)"),
+            (fb_base.CHAR, [1], {}, "CHAR(1)"),
             (
-                firebird.CHAR,
+                fb_base.CHAR,
                 [1],
                 {"charset": "OCTETS"},
                 "CHAR(1) CHARACTER SET OCTETS",
             ),
-            (firebird.VARCHAR, [1], {}, "VARCHAR(1)"),
+            (fb_base.VARCHAR, [1], {}, "VARCHAR(1)"),
             (
-                firebird.VARCHAR,
+                fb_base.VARCHAR,
                 [1],
                 {"charset": "OCTETS"},
                 "VARCHAR(1) CHARACTER SET OCTETS",
