@@ -62,3 +62,7 @@ class Requirements(SuiteRequirements):
         """
         # TODO: Research ways to support this in Firebird
         return exclusions.closed()
+
+    @property
+    def unbounded_varchar(self):
+        return exclusions.fails("not supported by database")
