@@ -45,6 +45,10 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()
 
     @property
+    def comment_reflection(self):
+        return exclusions.open()
+ 
+    @property
     def tuple_in(self):
         """ Supports queries like:
         SELECT some_table.id FROM some_table

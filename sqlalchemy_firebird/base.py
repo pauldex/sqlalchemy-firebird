@@ -670,6 +670,9 @@ class FBDialect(default.DefaultDialect):
     supports_default_values = True
     postfetch_lastrowid = False
 
+    supports_comments = True
+    inline_comments = True
+
     supports_native_boolean = False
 
     requires_name_normalize = True
@@ -1015,3 +1018,14 @@ class FBDialect(default.DefaultDialect):
             )
 
         return list(indexes.values())
+
+    @reflection.cache
+    def get_table_comment(self, connection, table_name, schema=None, **kw):
+        qry = """
+        SELECT RDB$DESCRIPTION AS comment
+                      FROM rdb$relations
+                      WHERE rdb$relation_name=?
+        """
+        c = connection.execute(qry, [self.denormalize_name(table_name)])
+        return {"text": c.first()['comment']}
+
