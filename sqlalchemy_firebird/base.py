@@ -485,10 +485,7 @@ class FBCompiler(sql.compiler.SQLCompiler):
             return "SUBSTRING(%s FROM %s)" % (s, start)
 
     def visit_length_func(self, function, **kw):
-        if self.dialect._version_two:
-            return "char_length" + self.function_argspec(function)
-        else:
-            return "strlen" + self.function_argspec(function)
+        return "char_length" + self.function_argspec(function)
 
     visit_char_length_func = visit_length_func
 
@@ -1027,5 +1024,4 @@ class FBDialect(default.DefaultDialect):
                       WHERE rdb$relation_name=?
         """
         c = connection.execute(qry, [self.denormalize_name(table_name)])
-        return {"text": c.first()['comment']}
-
+        return {"text": c.first()["comment"]}
