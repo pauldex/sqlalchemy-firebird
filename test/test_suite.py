@@ -31,12 +31,25 @@ from sqlalchemy.testing.mock import call
 from sqlalchemy.testing.mock import Mock
 from sqlalchemy.testing.suite import *
 from sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
+from sqlalchemy.testing.suite import TableDDLTest as _TableDDLTest
 
 
 class InsertBehaviorTest(_InsertBehaviorTest):
     def test_autoclose_on_insert(self):
         # TODO: investigate why when the real test fails it hangs the test
         #       run on class teardown (after `DROP TABLE autoinc_pk`)
+        return
+
+
+class TableDDLTest(_TableDDLTest):
+    def test_create_table_schema(self):
+        """Do not test schemas
+
+        In Firebird, a schema is the same thing as a database.  According to the Firebird
+        reference manual, "The CREATE DATABASE statement creates a new database. You can use
+        CREATE DATABASE or CREATE SCHEMA. They are synonymous."  See:
+        https://firebirdsql.org/file/documentation/reference_manuals/fblangref25-en/html/fblangref25-ddl-db.html
+        """
         return
 
 
