@@ -17,6 +17,10 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()
 
     @property
+    def floats_to_four_decimals(self):
+        return exclusions.closed()
+
+    @property
     def implicitly_named_constraints(self):
         """target database supports constraints without an explicit name."""
         return exclusions.open()
@@ -24,6 +28,10 @@ class Requirements(SuiteRequirements):
     @property
     def indexes_with_ascdesc(self):
         """target database supports CREATE INDEX with column-level ASC/DESC."""
+        return exclusions.closed()
+
+    @property
+    def precision_generic_float_type(self):
         return exclusions.closed()
 
     @property
@@ -47,7 +55,7 @@ class Requirements(SuiteRequirements):
     @property
     def comment_reflection(self):
         return exclusions.open()
- 
+
     @property
     def tuple_in(self):
         """ Supports queries like:
