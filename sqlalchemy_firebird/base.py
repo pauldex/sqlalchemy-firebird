@@ -509,13 +509,18 @@ class FBCompiler(sql.compiler.SQLCompiler):
         """Called when building a ``SELECT`` statement, position is just
         before column list Firebird puts the limit and offset right
         after the ``SELECT``...
+
+        In Firebird, FIRST and SKIP require parentheses for an integer expression.
+
+        Including parentheses for an integer literal or query parameter works,
+        even though they aren't needed,
         """
 
         result = ""
         if select._limit_clause is not None:
-            result += "FIRST %s " % self.process(select._limit_clause, **kw)
+            result += "FIRST (%s) " % self.process(select._limit_clause, **kw)
         if select._offset_clause is not None:
-            result += "SKIP %s " % self.process(select._offset_clause, **kw)
+            result += "SKIP (%s) " % self.process(select._offset_clause, **kw)
         if select._distinct:
             result += "DISTINCT "
         return result
