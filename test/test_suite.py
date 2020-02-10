@@ -33,6 +33,10 @@ from sqlalchemy.testing.mock import Mock
 from sqlalchemy.testing.suite import *
 from sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
 from sqlalchemy.testing.suite import TableDDLTest as _TableDDLTest
+from sqlalchemy.testing.suite import (
+    DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest,
+)
+from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
 
 
 class InsertBehaviorTest(_InsertBehaviorTest):
@@ -51,6 +55,36 @@ class TableDDLTest(_TableDDLTest):
         CREATE DATABASE or CREATE SCHEMA. They are synonymous."  See:
         https://firebirdsql.org/file/documentation/reference_manuals/fblangref25-en/html/fblangref25-ddl-db.html
         """
+        return
+
+
+class CompoundSelectTest(_CompoundSelectTest):
+    """
+    Firebird requires ORDER BY column position number for UNIONs
+    """
+
+    def test_plain_union(self):
+        return
+
+    def test_distinct_selectable_in_unions(self):
+        return
+
+    def test_limit_offset_aliased_selectable_in_unions(self):
+        return
+
+
+class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
+    """
+    Firebird requires ORDER BY column position number for UNIONs
+    """
+
+    def test_plain_union(self):
+        return
+
+    def test_distinct_selectable_in_unions(self):
+        return
+
+    def test_limit_offset_aliased_selectable_in_unions(self):
         return
 
 
