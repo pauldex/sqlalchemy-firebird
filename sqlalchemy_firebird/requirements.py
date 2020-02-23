@@ -43,6 +43,10 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()
 
     @property
+    def sane_rowcount_w_returning(self):
+        return exclusions.closed()
+
+    @property
     def temp_table_names(self):
         return exclusions.open()
 
