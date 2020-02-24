@@ -37,7 +37,9 @@ from sqlalchemy.testing.suite import (
     DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest,
 )
 from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
-from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
+from sqlalchemy.testing.suite import (
+    ComponentReflectionTest as _ComponentReflectionTest,
+)
 
 
 class InsertBehaviorTest(_InsertBehaviorTest):
@@ -202,151 +204,6 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
         assert isinstance(table.c.d.type, Date)
         assert isinstance(table.c.t.type, Time)
         assert isinstance(table.c.dt.type, DateTime)
-
-
-class BuggyDomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
-    """Test Firebird domains (and some other reflection bumps),
-    see [ticket:1663] and http://tracker.firebirdsql.org/browse/CORE-356"""
-
-    __only_on__ = "firebird2"
-
-    # NB: spacing and newlines are *significant* here!
-    # PS: this test is superfluous on recent FB, where the issue 356 is
-    # probably fixed...
-
-    AUTOINC_DM = """\
-CREATE DOMAIN AUTOINC_DM
-AS
-NUMERIC(18,0)
-"""
-
-    MONEY_DM = """\
-CREATE DOMAIN MONEY_DM
-AS
-NUMERIC(15,2)
-DEFAULT 0
-CHECK (VALUE BETWEEN -
-9999999999999.99 AND +9999999999999.99)
-"""
-
-    NOSI_DM = """\
-CREATE DOMAIN
-NOSI_DM AS
-CHAR(1)
-DEFAULT 'N'
-NOT NULL
-CHECK (VALUE IN
-('S', 'N'))
-"""
-
-    RIT_TESORERIA_CAPITOLO_DM = """\
-CREATE DOMAIN RIT_TESORERIA_CAPITOLO_DM
-AS
-VARCHAR(6)
-CHECK ((VALUE IS NULL) OR (VALUE =
-UPPER(VALUE)))
-"""
-
-    DEF_ERROR_TB = """\
-CREATE TABLE DEF_ERROR (
-RITENUTAMOV_ID AUTOINC_DM
-NOT NULL,
-RITENUTA MONEY_DM,
-INTERESSI MONEY_DM
-DEFAULT
-0,
-STAMPATO_MODULO NOSI_DM DEFAULT 'S',
-TESORERIA_CAPITOLO
-RIT_TESORERIA_CAPITOLO_DM)
-"""
-
-    DEF_ERROR_NODOM_TB = """\
-CREATE TABLE
-DEF_ERROR_NODOM (
-RITENUTAMOV_ID INTEGER NOT NULL,
-RITENUTA NUMERIC(15,2) DEFAULT 0,
-INTERESSI NUMERIC(15,2)
-DEFAULT
-0,
-STAMPATO_MODULO CHAR(1) DEFAULT 'S',
-TESORERIA_CAPITOLO
-CHAR(1))
-"""
-
-    DOM_ID = """
-CREATE DOMAIN DOM_ID INTEGER NOT NULL
-"""
-
-    TABLE_A = """\
-CREATE TABLE A (
-ID DOM_ID /* INTEGER NOT NULL */ DEFAULT 0 )
-"""
-
-    # the 'default' keyword is lower case here
-    TABLE_B = """\
-CREATE TABLE B (
-ID DOM_ID /* INTEGER NOT NULL */ default 0 )
-"""
-
-    @classmethod
-    def setup_class(cls):
-        con = testing.db.connect()
-        con.execute(cls.AUTOINC_DM)
-        con.execute(cls.MONEY_DM)
-        con.execute(cls.NOSI_DM)
-        con.execute(cls.RIT_TESORERIA_CAPITOLO_DM)
-        con.execute(cls.DEF_ERROR_TB)
-        con.execute(cls.DEF_ERROR_NODOM_TB)
-
-        con.execute(cls.DOM_ID)
-        con.execute(cls.TABLE_A)
-        con.execute(cls.TABLE_B)
-
-    @classmethod
-    def teardown_class(cls):
-        con = testing.db.connect()
-        con.execute("DROP TABLE a")
-        con.execute("DROP TABLE b")
-        con.execute("DROP DOMAIN dom_id")
-        con.execute("DROP TABLE def_error_nodom")
-        con.execute("DROP TABLE def_error")
-        con.execute("DROP DOMAIN rit_tesoreria_capitolo_dm")
-        con.execute("DROP DOMAIN nosi_dm")
-        con.execute("DROP DOMAIN money_dm")
-        con.execute("DROP DOMAIN autoinc_dm")
-
-    def test_tables_are_reflected_same_way(self):
-        metadata = MetaData(testing.db)
-
-        table_dom = Table("def_error", metadata, autoload=True)
-        table_nodom = Table("def_error_nodom", metadata, autoload=True)
-
-        eq_(
-            table_dom.c.interessi.server_default.arg.text,
-            table_nodom.c.interessi.server_default.arg.text,
-        )
-        eq_(
-            table_dom.c.ritenuta.server_default.arg.text,
-            table_nodom.c.ritenuta.server_default.arg.text,
-        )
-        eq_(
-            table_dom.c.stampato_modulo.server_default.arg.text,
-            table_nodom.c.stampato_modulo.server_default.arg.text,
-        )
-
-    def test_intermixed_comment(self):
-        metadata = MetaData(testing.db)
-
-        table_a = Table("a", metadata, autoload=True)
-
-        eq_(table_a.c.id.server_default.arg.text, "0")
-
-    def test_lowercase_default_name(self):
-        metadata = MetaData(testing.db)
-
-        table_b = Table("b", metadata, autoload=True)
-
-        eq_(table_b.c.id.server_default.arg.text, "0")
 
 
 class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
