@@ -876,7 +876,7 @@ class FBDialect(default.DefaultDialect):
 
         tablename = self.denormalize_name(table_name)
         # get all of the fields for this table
-        c = [dict(row) for row in connection.execute(tblqry, [tablename])]
+        c = [row for row in connection.execute(tblqry, [tablename])]
         cols = []
         for row in c:
             name = self.normalize_name(row["fname"])
