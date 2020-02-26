@@ -60,6 +60,11 @@ class Requirements(SuiteRequirements):
         return exclusions.open()
 
     @property
+    def unicode_ddl(self):
+        # assumes ?charset=UTF8 in connection URI
+        return exclusions.open()
+
+    @property
     def unique_constraint_reflection(self):
         # TODO: Research ways to support this in Firebird
         return exclusions.closed()
