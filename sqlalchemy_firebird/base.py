@@ -678,6 +678,7 @@ class FBDialect(default.DefaultDialect):
     supports_native_boolean = False
 
     requires_name_normalize = True
+    supports_unicode_binds = True
     supports_empty_insert = False
 
     statement_compiler = FBCompiler
