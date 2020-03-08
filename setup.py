@@ -8,9 +8,7 @@ v = open(
         os.path.dirname(__file__), "sqlalchemy_firebird", "__init__.py"
     )
 )
-VERSION = (
-    re.compile(r".*__version__ = '(.*?)'", re.S).match(v.read()).group(1)
-)
+VERSION = re.compile(r'.*__version__ = "(.*?)"', re.S).match(v.read()).group(1)
 v.close()
 
 readme = os.path.join(os.path.dirname(__file__), "README.rst")
