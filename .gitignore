@@ -1,6 +1,9 @@
 .idea/
 _venv/
 /venv/
+build/
+dist/
+*.egg-info
 /test.cfg
 /test/test.cfg
 *.html
