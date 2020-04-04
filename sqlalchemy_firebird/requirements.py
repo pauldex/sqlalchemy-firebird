@@ -9,6 +9,11 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()
 
     @property
+    def computed_columns(self):
+        "Supports computed columns"
+        return exclusions.open()
+
+    @property
     def datetime_microseconds(self):
         return exclusions.closed()
 
