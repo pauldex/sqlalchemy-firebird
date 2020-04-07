@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import Column
 from sqlalchemy import Computed
 from sqlalchemy import exc
@@ -43,6 +44,7 @@ from sqlalchemy.testing.suite import (
 
 
 class InsertBehaviorTest(_InsertBehaviorTest):
+    @pytest.mark.skip()
     def test_autoclose_on_insert(self):
         # TODO: investigate why when the real test fails it hangs the test
         #       run on class teardown (after `DROP TABLE autoinc_pk`)
@@ -50,6 +52,7 @@ class InsertBehaviorTest(_InsertBehaviorTest):
 
 
 class TableDDLTest(_TableDDLTest):
+    @pytest.mark.skip()
     def test_create_table_schema(self):
         """Do not test schemas
 
@@ -62,6 +65,7 @@ class TableDDLTest(_TableDDLTest):
 
 
 class ComponentReflectionTest(_ComponentReflectionTest):
+    @pytest.mark.skip()
     def test_get_comments(self):
         """
         test asserts a comment is on COMMENT_TABLE
@@ -77,12 +81,15 @@ class CompoundSelectTest(_CompoundSelectTest):
     Firebird requires ORDER BY column position number for UNIONs
     """
 
+    @pytest.mark.skip()
     def test_plain_union(self):
         return
 
+    @pytest.mark.skip()
     def test_distinct_selectable_in_unions(self):
         return
 
+    @pytest.mark.skip()
     def test_limit_offset_aliased_selectable_in_unions(self):
         return
 
@@ -92,12 +99,15 @@ class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
     Firebird requires ORDER BY column position number for UNIONs
     """
 
+    @pytest.mark.skip()
     def test_plain_union(self):
         return
 
+    @pytest.mark.skip()
     def test_distinct_selectable_in_unions(self):
         return
 
+    @pytest.mark.skip()
     def test_limit_offset_aliased_selectable_in_unions(self):
         return
 
@@ -206,7 +216,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
         assert isinstance(table.c.dt.type, DateTime)
 
 
-class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
+class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
 
     __dialect__ = firebird.FBDialect_fdb()
 
@@ -253,13 +263,16 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
                 dialect=firebird.dialect(),
             )
 
+    @testing.provide_metadata
     def test_function(self):
         self.assert_compile(func.foo(1, 2), "foo(:foo_1, :foo_2)")
         self.assert_compile(func.current_time(), "CURRENT_TIME")
         self.assert_compile(func.foo(), "foo")
-        m = MetaData()
         t = Table(
-            "sometable", m, Column("col1", Integer), Column("col2", Integer)
+            "sometable",
+            self.metadata,
+            Column("col1", Integer),
+            Column("col2", Integer),
         )
         self.assert_compile(
             select([func.max(t.c.col1)]),
@@ -365,15 +378,15 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         self.assert_compile(column("_somecol"), '"_somecol"')
         self.assert_compile(column("$somecol"), '"$somecol"')
 
+    @testing.provide_metadata
     @testing.combinations(
         ("no_persisted", "ignore"), ("persisted_none", None), id_="ia"
     )
     def test_column_computed(self, persisted):
-        m = MetaData()
         kwargs = {"persisted": persisted} if persisted != "ignore" else {}
         t = Table(
             "t",
-            m,
+            self.metadata,
             Column("x", Integer),
             Column("y", Integer, Computed("x + 2", **kwargs)),
         )
@@ -383,14 +396,14 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
             "ALWAYS AS (x + 2))",
         )
 
+    @testing.provide_metadata
     @testing.combinations(
         ("persisted_true", True), ("persisted_false", False), id_="ia"
     )
     def test_column_computed_raises(self, persisted):
-        m = MetaData()
         t = Table(
             "t",
-            m,
+            self.metadata,
             Column("x", Integer),
             Column("y", Integer, Computed("x + 2", persisted=persisted)),
         )
@@ -406,12 +419,12 @@ class TypesTest(fixtures.TestBase):
     __only_on__ = "firebird2"
 
     @testing.provide_metadata
-    def test_infinite_float(self):
+    def test_infinite_float(self, connection):
         metadata = self.metadata
         t = Table("t", metadata, Column("data", Float))
         metadata.create_all()
-        t.insert().execute(data=float("inf"))
-        eq_(t.select().execute().fetchall(), [(float("inf"),)])
+        connection.execute(t.insert(), data=float("inf"))
+        eq_(connection.execute(t.select()).fetchall(), [(float("inf"),)])
 
 
 class MiscTest(fixtures.TestBase):
@@ -419,7 +432,7 @@ class MiscTest(fixtures.TestBase):
     __only_on__ = "firebird2"
 
     @testing.provide_metadata
-    def test_strlen(self):
+    def test_strlen(self, connection):
         metadata = self.metadata
 
         # On FB the length() function is implemented by an external UDF,
@@ -435,11 +448,11 @@ class MiscTest(fixtures.TestBase):
             Column("name", String(10)),
         )
         metadata.create_all()
-        t.insert(values=dict(name="dante")).execute()
-        t.insert(values=dict(name="alighieri")).execute()
-        select(
-            [func.count(t.c.id)], func.length(t.c.name) == 5
-        ).execute().first()[0] == 1
+        connection.execute(t.insert(values=dict(name="dante")))
+        connection.execute(t.insert(values=dict(name="alighieri")))
+        connection.execute(
+            select([func.count(t.c.id)], func.length(t.c.name) == 5)
+        ).first()[0] == 1
 
     def test_version_parsing(self):
         for string, result in [
@@ -459,28 +472,41 @@ class MiscTest(fixtures.TestBase):
         metadata.bind = engine
         t = Table("t1", metadata, Column("data", String(10)))
         metadata.create_all()
-        r = t.insert().execute({"data": "d1"}, {"data": "d2"}, {"data": "d3"})
-        r = t.update().where(t.c.data == "d2").values(data="d3").execute()
-        eq_(r.rowcount, 1)
-        r = t.delete().where(t.c.data == "d3").execute()
-        eq_(r.rowcount, 2)
-        r = t.delete().execution_options(enable_rowcount=False).execute()
-        eq_(r.rowcount, -1)
+        with engine.begin() as conn:
+            r = conn.execute(
+                t.insert(), {"data": "d1"}, {"data": "d2"}, {"data": "d3"}
+            )
+            r = conn.execute(
+                t.update().where(t.c.data == "d2").values(data="d3")
+            )
+            eq_(r.rowcount, 1)
+            r = conn.execute(t.delete().where(t.c.data == "d3"))
+            eq_(r.rowcount, 2)
+            r = conn.execute(
+                t.delete().execution_options(enable_rowcount=False)
+            )
+            eq_(r.rowcount, -1)
         engine.dispose()
         engine = engines.testing_engine(options={"enable_rowcount": False})
         assert not engine.dialect.supports_sane_rowcount
         metadata.bind = engine
-        r = t.insert().execute({"data": "d1"}, {"data": "d2"}, {"data": "d3"})
-        r = t.update().where(t.c.data == "d2").values(data="d3").execute()
-        eq_(r.rowcount, -1)
-        r = t.delete().where(t.c.data == "d3").execute()
-        eq_(r.rowcount, -1)
-        r = t.delete().execution_options(enable_rowcount=True).execute()
-        eq_(r.rowcount, 1)
-        r.close()
+        with engine.begin() as conn:
+            r = conn.execute(
+                t.insert(), {"data": "d1"}, {"data": "d2"}, {"data": "d3"}
+            )
+            r = conn.execute(
+                t.update().where(t.c.data == "d2").values(data="d3")
+            )
+            eq_(r.rowcount, -1)
+            r = conn.execute(t.delete().where(t.c.data == "d3"))
+            eq_(r.rowcount, -1)
+            r = conn.execute(
+                t.delete().execution_options(enable_rowcount=True)
+            )
+            eq_(r.rowcount, 1)
         engine.dispose()
 
-    def test_percents_in_text(self):
+    def test_percents_in_text(self, connection):
         for expr, result in (
             (text("select '%' from rdb$database"), "%"),
             (text("select '%%' from rdb$database"), "%%"),
@@ -490,7 +516,7 @@ class MiscTest(fixtures.TestBase):
                 "hello % world",
             ),
         ):
-            eq_(testing.db.scalar(expr), result)
+            eq_(connection.scalar(expr), result)
 
 
 class ArgumentTest(fixtures.TestBase):
