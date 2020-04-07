@@ -860,7 +860,8 @@ class FBDialect(default.DefaultDialect):
                         f.rdb$field_precision AS fprec,
                         f.rdb$field_scale AS fscale,
                         COALESCE(r.rdb$default_source,
-                                f.rdb$default_source) AS fdefault
+                                f.rdb$default_source) AS fdefault,
+                        f.rdb$computed_source AS computed_source
         FROM rdb$relation_fields r
              JOIN rdb$fields f ON r.rdb$field_source=f.rdb$field_name
              JOIN rdb$types t
@@ -934,6 +935,9 @@ class FBDialect(default.DefaultDialect):
             if orig_colname.lower() == orig_colname:
                 col_d["quote"] = True
 
+            if row["computed_source"] is not None:
+                col_d["computed"] = {"sqltext": row["computed_source"]}
+
             # if the PK is a single field, try to see if its linked to
             # a sequence thru a trigger
             if len(pkey_cols) == 1 and name == pkey_cols[0]:
@@ -982,9 +986,7 @@ class FBDialect(default.DefaultDialect):
             if not fk["name"]:
                 fk["name"] = cname
                 fk["referred_table"] = self.normalize_name(row["targetrname"])
-            fk["constrained_columns"].append(
-                self.normalize_name(row["fname"])
-            )
+            fk["constrained_columns"].append(self.normalize_name(row["fname"]))
             fk["referred_columns"].append(
                 self.normalize_name(row["targetfname"])
             )
