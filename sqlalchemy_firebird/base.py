@@ -784,10 +784,19 @@ class FBDialect(default.DefaultDialect):
         return [self.normalize_name(row[0]) for row in connection.execute(s)]
 
     @reflection.cache
+    def get_sequence_names(self, connection, schema=None, **kw):
+        s = """
+        select TRIM(rdb$generator_name)
+        from rdb$generators
+        where (rdb$system_flag is null or rdb$system_flag = 0);
+        """
+        return [self.normalize_name(row[0]) for row in connection.execute(s)]
+
+    @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
         # see http://www.firebirdfaq.org/faq174/
         s = """
-        select rdb$relation_name
+        select TRIM(rdb$relation_name)
         from rdb$relations
         where rdb$view_blr is not null
         and (rdb$system_flag is null or rdb$system_flag = 0);
