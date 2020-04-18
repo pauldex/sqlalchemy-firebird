@@ -81,6 +81,7 @@ import datetime
 from sqlalchemy import exc
 from sqlalchemy import schema as sa_schema
 from sqlalchemy import sql
+from sqlalchemy import text
 from sqlalchemy import types as sqltypes
 from sqlalchemy import util
 from sqlalchemy.engine import default
@@ -98,7 +99,6 @@ from sqlalchemy.types import SMALLINT
 from sqlalchemy.types import TEXT
 from sqlalchemy.types import TIME
 from sqlalchemy.types import TIMESTAMP
-
 
 RESERVED_WORDS = set(
     [
@@ -724,13 +724,17 @@ class FBDialect(default.DefaultDialect):
         """Return ``True`` if the given table exists, ignoring
         the `schema`."""
 
-        tblqry = """
-        SELECT 1 AS has_table FROM rdb$database
-        WHERE EXISTS (SELECT rdb$relation_name
-                      FROM rdb$relations
-                      WHERE rdb$relation_name=?)
-        """
-        c = connection.execute(tblqry, [self.denormalize_name(table_name)])
+        tblqry = text(
+            """
+            SELECT 1 AS has_table FROM rdb$database
+            WHERE EXISTS (SELECT rdb$relation_name
+                          FROM rdb$relations
+                          WHERE rdb$relation_name=:tbl_name)
+            """
+        )
+        c = connection.execute(
+            tblqry, {"tbl_name": self.denormalize_name(table_name)}
+        )
         return c.first() is not None
 
     def has_sequence(self, connection, sequence_name, schema=None):
@@ -1026,10 +1030,14 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_table_comment(self, connection, table_name, schema=None, **kw):
-        qry = """
-        SELECT RDB$DESCRIPTION AS comment
-                      FROM rdb$relations
-                      WHERE rdb$relation_name=?
-        """
-        c = connection.execute(qry, [self.denormalize_name(table_name)])
-        return {"text": c.first()["comment"]}
+        qry = text(
+            """
+            SELECT RDB$DESCRIPTION AS comment
+            FROM rdb$relations
+            WHERE rdb$relation_name=:tbl_name
+            """
+        )
+        c = connection.execute(
+            qry, {"tbl_name": self.denormalize_name(table_name)}
+        )
+        return {"text": c.scalar()}
