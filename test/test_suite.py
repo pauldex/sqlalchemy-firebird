@@ -115,7 +115,7 @@ class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
 class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
     "Test Firebird domains"
 
-    __only_on__ = "firebird2"
+    __only_on__ = "firebird"
 
     @classmethod
     def setup_class(cls):
@@ -416,7 +416,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
 
 
 class TypesTest(fixtures.TestBase):
-    __only_on__ = "firebird2"
+    __only_on__ = "firebird"
 
     @testing.provide_metadata
     def test_infinite_float(self, connection):
@@ -429,7 +429,7 @@ class TypesTest(fixtures.TestBase):
 
 class MiscTest(fixtures.TestBase):
 
-    __only_on__ = "firebird2"
+    __only_on__ = "firebird"
 
     @testing.provide_metadata
     def test_strlen(self, connection):

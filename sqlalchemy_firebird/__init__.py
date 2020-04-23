@@ -1,4 +1,4 @@
-# firebird2/__init__.py
+# firebird/__init__.py
 # Copyright (C) 2005-2020 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
@@ -29,7 +29,7 @@ __version__ = "0.2.0"
 
 base.dialect = dialect = fdb.dialect
 
-_registry.register("firebird2", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
+_registry.register("firebird", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
 
 __all__ = (
     "SMALLINT",

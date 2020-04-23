@@ -12,8 +12,8 @@ Sample connection URI:
 
 ::
 
-    firebird2://sysdba:scott_tiger@localhost//home/gord/git/sqlalchemy-firebird/sqla_test.fdb
+    firebird://sysdba:scott_tiger@localhost//home/gord/git/sqlalchemy-firebird/sqla_test.fdb
 
-The dialect identifier is currently "firebird2" to avoid conflicts with
+The dialect identifier is currently "firebird" to avoid conflicts with
 the internal dialect. Eventually both ``firebird://`` and
-``firebird2://`` will be equivalent.
+``firebird://`` will be equivalent.
