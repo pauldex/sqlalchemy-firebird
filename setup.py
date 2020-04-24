@@ -15,11 +15,11 @@ readme = os.path.join(os.path.dirname(__file__), "README.rst")
 
 
 setup(
-    name="sqlalchemy_firebird",
+    name="sqlalchemy-firebird",
     version=VERSION,
     description="Firebird for SQLAlchemy",
     long_description=open(readme).read(),
-    url="https://github.com/sqlalchemy/sqlalchemy-firebird",
+    url="https://github.com/pauldex/sqlalchemy-firebird",
     author="Paul Graves-DesLauriers",
     author_email="paul@dexmicro.com",
     license="MIT",

@@ -66,6 +66,7 @@ from sqlalchemy import util
 
 
 class FBDialect_fdb(FBDialect_kinterbasdb):
+    __version__ = "9.9.9"  # TODO: remove this
     driver = "fdb"
 
     def __init__(self, enable_rowcount=True, retaining=False, **kwargs):
