@@ -25,8 +25,8 @@ setup(
     license="MIT",
     classifiers=[
         # 'Development Status :: 1 - Planning',
-        "Development Status :: 2 - Pre-Alpha",
-        # 'Development Status :: 3 - Alpha',
+        # "Development Status :: 2 - Pre-Alpha",
+        'Development Status :: 3 - Alpha',
         # 'Development Status :: 4 - Beta',
         # 'Development Status :: 5 - Production/Stable',
         "Intended Audience :: Developers",
@@ -45,7 +45,7 @@ setup(
     },
     packages=find_packages(include=["sqlalchemy_firebird"]),
     include_package_data=True,
-    install_requires=["SQLAlchemy", "fdb"],
+    install_requires=["SQLAlchemy>1.3.16", "fdb"],
     zip_safe=False,
     entry_points={
         "sqlalchemy.dialects": [

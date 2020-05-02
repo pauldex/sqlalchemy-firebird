@@ -25,7 +25,7 @@ from . import provision  # noqa
 # Not supporting kinterbase
 # from . import kinterbasdb  # noqa
 
-__version__ = "0.2.0"
+__version__ = "0.2.0a1"
 
 base.dialect = dialect = fdb.dialect
 
