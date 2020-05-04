@@ -1,4 +1,4 @@
-# firebird2/__init__.py
+# firebird/__init__.py
 # Copyright (C) 2005-2020 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
@@ -25,11 +25,11 @@ from . import provision  # noqa
 # Not supporting kinterbase
 # from . import kinterbasdb  # noqa
 
-__version__ = "0.2.0"
+__version__ = "0.2.0a1"
 
 base.dialect = dialect = fdb.dialect
 
-_registry.register("firebird2", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
+_registry.register("firebird", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
 
 __all__ = (
     "SMALLINT",

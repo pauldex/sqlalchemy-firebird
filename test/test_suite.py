@@ -115,7 +115,7 @@ class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
 class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
     "Test Firebird domains"
 
-    __only_on__ = "firebird2"
+    __only_on__ = "firebird"
 
     @classmethod
     def setup_class(cls):
@@ -416,7 +416,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
 
 
 class TypesTest(fixtures.TestBase):
-    __only_on__ = "firebird2"
+    __only_on__ = "firebird"
 
     @testing.provide_metadata
     def test_infinite_float(self, connection):
@@ -429,7 +429,7 @@ class TypesTest(fixtures.TestBase):
 
 class MiscTest(fixtures.TestBase):
 
-    __only_on__ = "firebird2"
+    __only_on__ = "firebird"
 
     @testing.provide_metadata
     def test_strlen(self, connection):
@@ -531,22 +531,22 @@ class ArgumentTest(fixtures.TestBase):
             ),
         )
 
-    def _engine(self, type_, **kw):
+    def _engine(self, **kw):
         dbapi = self._dbapi()
         kw.update(dict(module=dbapi, _initialize=False))
-        engine = engines.testing_engine("firebird+%s://" % type_, options=kw)
+        engine = engines.testing_engine("firebird://", options=kw)
         return engine
 
     def test_retaining_flag_default_fdb(self):
-        engine = self._engine("fdb")
+        engine = self._engine()
         self._assert_retaining(engine, False)
 
     def test_retaining_flag_true_fdb(self):
-        engine = self._engine("fdb", retaining=True)
+        engine = self._engine(retaining=True)
         self._assert_retaining(engine, True)
 
     def test_retaining_flag_false_fdb(self):
-        engine = self._engine("fdb", retaining=False)
+        engine = self._engine(retaining=False)
         self._assert_retaining(engine, False)
 
     def _assert_retaining(self, engine, flag):
