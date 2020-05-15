@@ -97,7 +97,7 @@ class FBDialect_kinterbasdb(FBDialect):
         concurrency_level=1,
         enable_rowcount=True,
         retaining=False,
-        **kwargs
+        **kwargs,
     ):
         super(FBDialect_kinterbasdb, self).__init__(**kwargs)
         self.enable_rowcount = enable_rowcount
@@ -176,7 +176,7 @@ class FBDialect_kinterbasdb(FBDialect):
                 "Could not determine version from string '%s'" % version
             )
 
-        if m.group(5) != None:
+        if m.group(5) is not None:
             return tuple([int(x) for x in m.group(6, 7, 4)] + ["firebird"])
         else:
             return tuple([int(x) for x in m.group(1, 2, 3)] + ["interbase"])

@@ -56,9 +56,10 @@ class TableDDLTest(_TableDDLTest):
     def test_create_table_schema(self):
         """Do not test schemas
 
-        In Firebird, a schema is the same thing as a database.  According to the Firebird
-        reference manual, "The CREATE DATABASE statement creates a new database. You can use
-        CREATE DATABASE or CREATE SCHEMA. They are synonymous."  See:
+        In Firebird, a schema is the same thing as a database.  According to
+        the Firebird reference manual, "The CREATE DATABASE statement creates
+        a new database. You can use CREATE DATABASE or CREATE SCHEMA. They are
+        synonymous."  See:
         https://firebirdsql.org/file/documentation/reference_manuals/fblangref25-en/html/fblangref25-ddl-db.html
         """
         return

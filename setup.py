@@ -8,7 +8,9 @@ v = open(
         os.path.dirname(__file__), "sqlalchemy_firebird", "__init__.py"
     )
 )
-VERSION = re.compile(r'.*__version__ = "(.*?)"', re.S).match(v.read()).group(1)
+VERSION = (
+    re.compile(r'.*__version__ = "(.*?)"', re.S).match(v.read()).group(1)
+)
 v.close()
 
 readme = os.path.join(os.path.dirname(__file__), "README.rst")
@@ -27,7 +29,7 @@ setup(
         # 'Development Status :: 1 - Planning',
         # "Development Status :: 2 - Pre-Alpha",
         # 'Development Status :: 3 - Alpha',
-        'Development Status :: 4 - Beta',
+        "Development Status :: 4 - Beta",
         # 'Development Status :: 5 - Production/Stable',
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
