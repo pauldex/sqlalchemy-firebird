@@ -1,23 +1,49 @@
 sqlalchemy-firebird
-===================
+###################
+
 An external SQLAlchemy dialect for Firebird
--------------------------------------------
+===========================================
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
 
-| This replaces SQLAlchemy's internal Firebird dialect which is not being
-| maintained and will be removed in a future version.
-|
+----
 
-Installation:
+| This replaces SQLAlchemy's internal Firebird dialect which is not being maintained
+ and will be removed in a future version.
+
+
+****
+
+**Installation:**
 
 ::
 
     pip install sqlalchemy-firebird
 
-Sample connection URI:
+|
+|    Connection URI samples for Firebird server installed on local machine using default port (3050):
 
 ::
 
-    firebird://sysdba:scott_tiger@localhost//home/paul/databases/sqla_test.fdb
+    [Linux]
+    firebird://username:password@localhost//~/projects/databases/my_project.fdb
 
+    [Windows]
+    firebird://username:password@localhost//c:/projects/databases/my_project.fdb
+
+|
+
+----
+
+**Code of Conduct**
+
+As with SQLAlchemy, sqlalchemy-firebird places great emphasis on polite, thoughtful, and
+constructive communication between users and developers.
+We use the SQLAlchemy `Code of Conduct <http://www.sqlalchemy.org/codeofconduct.html>`_.
+
+----
+
+**License**
+
+sqlalchemy-firebird is distributed under the `MIT license
+<http://www.opensource.org/licenses/mit-license.php>`_.
