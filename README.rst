@@ -11,17 +11,16 @@ An external SQLAlchemy dialect for Firebird
 | This replaces SQLAlchemy's internal Firebird dialect which is not being maintained
  and will be removed in a future version.
 
-
 ****
 
-**Installation:**
+**Installation**
 
 ::
 
     pip install sqlalchemy-firebird
 
 |
-|    Connection URI samples for Firebird server installed on local machine using default port (3050):
+|  Connection URI samples for Firebird server installed on local machine using default port (3050):
 
 ::
 
@@ -30,8 +29,6 @@ An external SQLAlchemy dialect for Firebird
 
     [Windows]
     firebird://username:password@localhost//c:/projects/databases/my_project.fdb
-
-|
 
 ----
 
