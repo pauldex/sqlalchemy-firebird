@@ -34,9 +34,6 @@ from sqlalchemy.testing.mock import Mock
 from sqlalchemy.testing.suite import *
 from sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
 from sqlalchemy.testing.suite import TableDDLTest as _TableDDLTest
-from sqlalchemy.testing.suite import (
-    DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest,
-)
 from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
 from sqlalchemy.testing.suite import (
     ComponentReflectionTest as _ComponentReflectionTest,
@@ -78,24 +75,6 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 
 
 class CompoundSelectTest(_CompoundSelectTest):
-    """
-    Firebird requires ORDER BY column position number for UNIONs
-    """
-
-    @pytest.mark.skip()
-    def test_plain_union(self):
-        return
-
-    @pytest.mark.skip()
-    def test_distinct_selectable_in_unions(self):
-        return
-
-    @pytest.mark.skip()
-    def test_limit_offset_aliased_selectable_in_unions(self):
-        return
-
-
-class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
     """
     Firebird requires ORDER BY column position number for UNIONs
     """
