@@ -26,8 +26,8 @@ setup(
     classifiers=[
         # 'Development Status :: 1 - Planning',
         # "Development Status :: 2 - Pre-Alpha",
-        'Development Status :: 3 - Alpha',
-        # 'Development Status :: 4 - Beta',
+        # 'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         # 'Development Status :: 5 - Production/Stable',
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
@@ -39,9 +39,9 @@ setup(
     ],
     keywords="SQLAlchemy Firebird",
     project_urls={
-        "Documentation": "https://github.com/sqlalchemy/sqlalchemy-firebird/wiki",
-        "Source": "https://github.com/sqlalchemy/sqlalchemy-firebird",
-        "Tracker": "https://github.com/sqlalchemy/sqlalchemy-firebird/issues",
+        "Documentation": "https://github.com/pauldex/sqlalchemy-firebird/wiki",
+        "Source": "https://github.com/pauldex/sqlalchemy-firebird",
+        "Tracker": "https://github.com/pauldex/sqlalchemy-firebird/issues",
     },
     packages=find_packages(include=["sqlalchemy_firebird"]),
     include_package_data=True,
