@@ -25,7 +25,7 @@ An external SQLAlchemy dialect for Firebird
 ::
 
     [Linux]
-    firebird://username:password@localhost/~/projects/databases/my_project.fdb
+    firebird://username:password@localhost///home/paulgd/projects/databases/my_project.fdb
 
     [Windows]
     firebird://username:password@localhost/c:/projects/databases/my_project.fdb
