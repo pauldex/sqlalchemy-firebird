@@ -36,7 +36,9 @@ from sqlalchemy.testing.suite import (
     ComponentReflectionTest as _ComponentReflectionTest,
 )
 from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
-from sqlalchemy.testing.suite import ExpandingBoundInTest as _ExpandingBoundInTest
+from sqlalchemy.testing.suite import (
+    ExpandingBoundInTest as _ExpandingBoundInTest,
+)
 from sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
 from sqlalchemy.testing.suite import TableDDLTest as _TableDDLTest
 
