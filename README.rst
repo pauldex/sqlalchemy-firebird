@@ -5,6 +5,8 @@ An external SQLAlchemy dialect for Firebird
 ===========================================
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
+.. image:: https://github.com/pauldex/sqlalchemy-firebird/workflows/sqlalchemy-firebird/badge.svg
+    :target: https://github.com/pauldex/sqlalchemy-firebird
 
 ----
 
