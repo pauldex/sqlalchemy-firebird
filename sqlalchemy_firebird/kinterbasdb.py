@@ -1,10 +1,3 @@
-# firebird/kinterbasdb.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
-# <see AUTHORS file>
-#
-# This module is part of SQLAlchemy and is released under
-# the MIT License: http://www.opensource.org/licenses/mit-license.php
-
 """
 .. dialect:: firebird+kinterbasdb
     :name: kinterbasdb
@@ -155,13 +148,11 @@ class FBDialect_kinterbasdb(FBDialect):
         Returns a tuple of (`major`, `minor`, `build`), three integers
         representing the version of the attached server.
         """
-
         # This is the simpler approach (the other uses the services api),
         # that for backward compatibility reasons returns a string like
         #   LI-V6.3.3.12981 Firebird 2.0
         # where the first version is a fake one resembling the old
         # Interbase signature.
-
         fbconn = connection.connection
         version = fbconn.server_version
 

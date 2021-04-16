@@ -1,5 +1,4 @@
 from sqlalchemy.testing.requirements import SuiteRequirements
-
 from sqlalchemy.testing import exclusions
 
 
@@ -10,7 +9,7 @@ class Requirements(SuiteRequirements):
 
     @property
     def computed_columns(self):
-        "Supports computed columns"
+        """Supports computed columns"""
         return exclusions.open()
 
     @property
@@ -27,12 +26,12 @@ class Requirements(SuiteRequirements):
 
     @property
     def implicitly_named_constraints(self):
-        """target database supports constraints without an explicit name."""
+        """Target database supports constraints without an explicit name."""
         return exclusions.open()
 
     @property
     def indexes_with_ascdesc(self):
-        """target database supports CREATE INDEX with column-level ASC/DESC."""
+        """Target database supports CREATE INDEX with column-level ASC/DESC."""
         return exclusions.closed()
 
     @property
@@ -80,7 +79,7 @@ class Requirements(SuiteRequirements):
 
     @property
     def tuple_in(self):
-        """ Supports queries like:
+        """Supports queries like:
         SELECT some_table.id FROM some_table
         WHERE (some_table.x, some_table.z) IN ((2, 'z2'), (3, 'z3'), (4, 'z4'))
 
@@ -89,7 +88,7 @@ class Requirements(SuiteRequirements):
         WHERE (some_table.x = 2 and some_table.z = 'z2')
            OR (some_table.x = 3 and some_table.z = 'z3')
            OR (some_table.x = 4 and some_table.z = 'z4')
-        """
+        """  # noqa
         # TODO: Research ways to support this in Firebird
         return exclusions.closed()
 

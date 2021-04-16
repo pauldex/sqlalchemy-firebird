@@ -10,3 +10,4 @@ if errorlevel 1 (
 )
 
 popd
+exit

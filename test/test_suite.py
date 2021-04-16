@@ -31,7 +31,7 @@ from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing.mock import call
 from sqlalchemy.testing.mock import Mock
-from sqlalchemy.testing.suite import *
+from sqlalchemy.testing.suite import *  # noqa: F401, F403
 from sqlalchemy.testing.suite import (
     ComponentReflectionTest as _ComponentReflectionTest,
 )
@@ -47,7 +47,7 @@ class ComponentReflectionTest(_ComponentReflectionTest):
     @pytest.mark.skip()
     def test_get_comments(self):
         """
-        test asserts a comment is on COMMENT_TABLE
+        Test asserts a comment is on COMMENT_TABLE.
 
         I'm not able to find where a comment is associated with this table.
         Skip this one for now...
@@ -56,9 +56,7 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 
 
 class CompoundSelectTest(_CompoundSelectTest):
-    """
-    Firebird requires ORDER BY column position number for UNIONs
-    """
+    """Firebird requires ORDER BY column position number for UNIONs"""
 
     @pytest.mark.skip()
     def test_plain_union(self):
@@ -108,7 +106,7 @@ class TableDDLTest(_TableDDLTest):
 
 
 class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
-    "Test Firebird domains"
+    """Test Firebird domains"""
 
     __only_on__ = "firebird"
 
@@ -349,7 +347,6 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
 
     def test_charset(self):
         """Exercise CHARACTER SET  options on string types."""
-
         columns = [
             (fb_base.CHAR, [1], {}, "CHAR(1)"),
             (

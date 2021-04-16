@@ -1,11 +1,4 @@
-# firebird/base.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
-# <see AUTHORS file>
-#
-# This module is part of SQLAlchemy and is released under
-# the MIT License: http://www.opensource.org/licenses/mit-license.php
-
-r"""
+"""
 
 .. dialect:: firebird
     :name: Firebird
@@ -74,7 +67,7 @@ the SQLAlchemy ``returning()`` method, such as::
 
 .. _dialects: http://mc-computing.com/Databases/Firebird/SQL_Dialect.html
 
-"""
+"""  # noqa
 
 import datetime
 
@@ -506,16 +499,17 @@ class FBCompiler(sql.compiler.SQLCompiler):
         return "gen_id(%s, 1)" % self.preparer.format_sequence(seq)
 
     def get_select_precolumns(self, select, **kw):
-        """Called when building a ``SELECT`` statement, position is just
+        """
+        Called when building a ``SELECT`` statement, position is just
         before column list Firebird puts the limit and offset right
         after the ``SELECT``...
 
-        In Firebird, FIRST and SKIP require parentheses for an integer expression.
+        In Firebird, FIRST and SKIP require parentheses
+        for an integer expression.
 
         Including parentheses for an integer literal or query parameter works,
         even though they aren't needed,
-        """
-
+        """  # noqa
         result = super(FBCompiler, self).get_select_precolumns(select, **kw)
 
         if select._limit_clause is not None:
@@ -527,7 +521,6 @@ class FBCompiler(sql.compiler.SQLCompiler):
 
     def limit_clause(self, select, **kw):
         """Already taken care of in the `get_select_precolumns` method."""
-
         return ""
 
     def returning_clause(self, stmt, returning_cols):
@@ -582,7 +575,6 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
 
     def visit_create_sequence(self, create):
         """Generate a ``CREATE GENERATOR`` statement for the sequence."""
-
         # no syntax for these
         # http://www.firebirdsql.org/manual/generatorguide-sqlsyntax.html
         if create.element.start is not None:
@@ -605,7 +597,6 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
 
     def visit_drop_sequence(self, drop):
         """Generate a ``DROP GENERATOR`` statement for the sequence."""
-
         if self.dialect._version_two:
             return "DROP SEQUENCE %s" % self.preparer.format_sequence(
                 drop.element
@@ -652,7 +643,6 @@ class FBIdentifierPreparer(sql.compiler.IdentifierPreparer):
 class FBExecutionContext(default.DefaultExecutionContext):
     def fire_sequence(self, seq, type_):
         """Get the next value from the sequence using ``gen_id()``."""
-
         return self._execute_scalar(
             "SELECT gen_id(%s, 1) FROM rdb$database"
             % self.dialect.identifier_preparer.format_sequence(seq),
@@ -691,7 +681,10 @@ class FBDialect(default.DefaultDialect):
     ischema_names = ischema_names
 
     construct_arguments = [
-        (sa_schema.Table, {"on_commit": None},),
+        (
+            sa_schema.Table,
+            {"on_commit": None},
+        ),
         (sa_schema.Column, {"identity_start": 0}),
     ]
 
@@ -721,9 +714,7 @@ class FBDialect(default.DefaultDialect):
         )
 
     def has_table(self, connection, table_name, schema=None):
-        """Return ``True`` if the given table exists, ignoring
-        the `schema`."""
-
+        """Return ``True`` if the given table exists, ignoring the `schema`."""
         tblqry = text(
             """
             SELECT 1 AS has_table FROM rdb$database
@@ -739,7 +730,6 @@ class FBDialect(default.DefaultDialect):
 
     def has_sequence(self, connection, sequence_name, schema=None):
         """Return ``True`` if the given sequence (generator) exists."""
-
         genqry = """
         SELECT 1 AS has_sequence FROM rdb$database
         WHERE EXISTS (SELECT rdb$generator_name
@@ -861,7 +851,9 @@ class FBDialect(default.DefaultDialect):
             return dict(name=self.normalize_name(genr["fgenerator"]))
 
     @reflection.cache
-    def get_columns(self, connection, table_name, schema=None, **kw):
+    def get_columns(  # noqa: C901
+        self, connection, table_name, schema=None, **kw
+    ):
         # Query to extract the details of all the fields of the given table
         tblqry = """
         SELECT TRIM(r.rdb$field_name) AS fname,

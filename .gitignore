@@ -11,3 +11,5 @@ sqlalchemy_firebird/__pycache__/
 test/__pycache__/
 *.log
 readme.md
+/_venv1-3/
+/_venv1-4/
