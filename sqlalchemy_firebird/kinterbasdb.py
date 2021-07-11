@@ -160,7 +160,7 @@ class FBDialect_kinterbasdb(FBDialect):
 
     def _parse_version_info(self, version):
         m = match(
-            r"\w+-V(\d+)\.(\d+)\.(\d+)\.(\d+)( \w+ (\d+)\.(\d+))?", version
+            r"\w+-[V|T](\d+)\.(\d+)\.(\d+)\.(\d+)( \w+ (\d+)\.(\d+))?", version
         )
         if not m:
             raise AssertionError(
