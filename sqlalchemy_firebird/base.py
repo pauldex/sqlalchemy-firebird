@@ -655,7 +655,14 @@ class FBDialect(default.DefaultDialect):
 
     name = "firebird"
 
+    """
+        Firebird version 4.0 and greater have a maximum identifier length of
+        63 characters character set UTF8 (252 bytes).  Prior versions have a
+        maximum identifier length of 31 bytes.
+
     max_identifier_length = 31
+
+    """
 
     supports_sequences = True
     sequences_optional = False
@@ -713,8 +720,19 @@ class FBDialect(default.DefaultDialect):
             "implicit_returning", True
         )
 
+        if connection.connection.engine_version < 4.0:
+            self.max_identifier_length = 31
+        else:
+            self.max_identifier_length = 252
+
     def has_table(self, connection, table_name, schema=None):
-        """Return ``True`` if the given table exists, ignoring the `schema`."""
+        """Return ``True`` if the given table exists, ignoring the `schema`.
+        """
+
+        # Can't have a table whose name is too long.
+        if len(table_name) > self.max_identifier_length:
+            return False
+
         tblqry = text(
             """
             SELECT 1 AS has_table FROM rdb$database
