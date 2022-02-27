@@ -678,6 +678,8 @@ class FBDialect(default.DefaultDialect):
     supports_unicode_binds = True
     supports_empty_insert = False
 
+    supports_statement_cache = True
+
     statement_compiler = FBCompiler
     ddl_compiler = FBDDLCompiler
     preparer = FBIdentifierPreparer
