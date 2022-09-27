@@ -728,8 +728,7 @@ class FBDialect(default.DefaultDialect):
             self.max_identifier_length = 252
 
     def has_table(self, connection, table_name, schema=None):
-        """Return ``True`` if the given table exists, ignoring the `schema`.
-        """
+        """Return ``True`` if the given table exists, ignoring the `schema`."""
 
         # Can't have a table whose name is too long.
         if len(table_name) > self.max_identifier_length:
@@ -1011,9 +1010,7 @@ class FBDialect(default.DefaultDialect):
             if not fk["name"]:
                 fk["name"] = cname
                 fk["referred_table"] = self.normalize_name(row["targetrname"])
-            fk["constrained_columns"].append(
-                self.normalize_name(row["fname"])
-            )
+            fk["constrained_columns"].append(self.normalize_name(row["fname"]))
             fk["referred_columns"].append(
                 self.normalize_name(row["targetfname"])
             )
