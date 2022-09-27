@@ -72,6 +72,7 @@ class FBExecutionContext_kinterbasdb(FBExecutionContext):
 class FBDialect_kinterbasdb(FBDialect):
     supports_sane_rowcount = False
     supports_sane_multi_rowcount = False
+    supports_statement_cache = True
     execution_ctx_cls = FBExecutionContext_kinterbasdb
 
     supports_native_decimal = True
