@@ -1,8 +1,12 @@
+[tool.pytest.ini_options]
+addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --log-info=sqlalchemy.engine"
+python_files = "test/*test_*.py"
+
 # SQLAlchemy-Firebird configuration for Black.
 
 [tool.black]
-line-length = 78
-target-version = ['py36', 'py37', 'py38', 'py39']
+line-length = 79
+target-version = ['py37']
 include = '\.pyi?$'
 exclude = '''
 /(
