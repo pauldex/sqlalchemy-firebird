@@ -1,5 +1,8 @@
 [tool.pytest.ini_options]
-addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --log-info=sqlalchemy.engine"
+# for "normal" test output
+addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings"
+# for verbose test output (like engine.echo = True)
+#addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --log-info=sqlalchemy.engine"
 python_files = "test/*test_*.py"
 
 # SQLAlchemy-Firebird configuration for Black.
