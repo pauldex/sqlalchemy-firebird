@@ -664,6 +664,7 @@ class FBDialect(default.DefaultDialect):
 
     """
 
+    supports_schemas = False
     supports_sequences = True
     sequences_optional = False
     supports_default_values = True
@@ -755,7 +756,9 @@ class FBDialect(default.DefaultDialect):
                       FROM rdb$generators
                       WHERE rdb$generator_name=?)
         """
-        c = connection.execute(genqry, [self.denormalize_name(sequence_name)])
+        c = connection.exec_driver_sql(
+            genqry, (self.denormalize_name(sequence_name),)
+        )
         return c.first() is not None
 
     @reflection.cache
@@ -779,7 +782,10 @@ class FBDialect(default.DefaultDialect):
         # FROM rdb$relation_fields
         # WHERE rdb$system_flag=0 AND rdb$view_context IS NULL
 
-        return [self.normalize_name(row[0]) for row in connection.execute(s)]
+        return [
+            self.normalize_name(row.relation_name)
+            for row in connection.exec_driver_sql(s)
+        ]
 
     @reflection.cache
     def get_temp_table_names(self, connection, schema=None, **kw):
@@ -790,27 +796,36 @@ class FBDialect(default.DefaultDialect):
         and (rdb$system_flag is null or rdb$system_flag = 0)
         and rdb$relation_type in (4, 5);
         """
-        return [self.normalize_name(row[0]) for row in connection.execute(s)]
+        return [
+            self.normalize_name(row.relation_name)
+            for row in connection.exec_driver_sql(s)
+        ]
 
     @reflection.cache
     def get_sequence_names(self, connection, schema=None, **kw):
         s = """
-        select TRIM(rdb$generator_name)
+        select TRIM(rdb$generator_name) AS generator_name
         from rdb$generators
         where (rdb$system_flag is null or rdb$system_flag = 0);
         """
-        return [self.normalize_name(row[0]) for row in connection.execute(s)]
+        return [
+            self.normalize_name(row.generator_name)
+            for row in connection.exec_driver_sql(s)
+        ]
 
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
         # see http://www.firebirdfaq.org/faq174/
         s = """
-        select TRIM(rdb$relation_name)
+        select TRIM(rdb$relation_name) AS relation_name
         from rdb$relations
         where rdb$view_blr is not null
         and (rdb$system_flag is null or rdb$system_flag = 0);
         """
-        return [self.normalize_name(row[0]) for row in connection.execute(s)]
+        return [
+            self.normalize_name(row.relation_name)
+            for row in connection.exec_driver_sql(s)
+        ]
 
     @reflection.cache
     def get_view_definition(self, connection, view_name, schema=None, **kw):
@@ -819,10 +834,12 @@ class FBDialect(default.DefaultDialect):
         FROM rdb$relations
         WHERE rdb$relation_name=?
         """
-        rp = connection.execute(qry, [self.denormalize_name(view_name)])
+        rp = connection.exec_driver_sql(
+            qry, (self.denormalize_name(view_name),)
+        )
         row = rp.first()
         if row:
-            return row["view_source"]
+            return row.view_source
         else:
             return None
 
@@ -837,8 +854,8 @@ class FBDialect(default.DefaultDialect):
         """
         tablename = self.denormalize_name(table_name)
         # get primary key fields
-        c = connection.execute(keyqry, ["PRIMARY KEY", tablename])
-        pkfields = [self.normalize_name(r["fname"]) for r in c.fetchall()]
+        c = connection.exec_driver_sql(keyqry, ("PRIMARY KEY", tablename))
+        pkfields = [self.normalize_name(r.fname) for r in c.fetchall()]
         return {"constrained_columns": pkfields, "name": None}
 
     @reflection.cache
@@ -865,9 +882,9 @@ class FBDialect(default.DefaultDialect):
            FROM rdb$dependencies trigdep2
            WHERE trigdep2.rdb$dependent_name = trigdep.rdb$dependent_name) = 2
         """
-        genr = connection.execute(genqry, [tablename, colname]).first()
+        genr = connection.exec_driver_sql(genqry, (tablename, colname)).first()
         if genr is not None:
-            return dict(name=self.normalize_name(genr["fgenerator"]))
+            return dict(name=self.normalize_name(genr.fgenerator))
 
     @reflection.cache
     def get_columns(  # noqa: C901
@@ -902,14 +919,14 @@ class FBDialect(default.DefaultDialect):
 
         tablename = self.denormalize_name(table_name)
         # get all of the fields for this table
-        c = [row for row in connection.execute(tblqry, [tablename])]
+        c = [row for row in connection.exec_driver_sql(tblqry, (tablename,))]
         cols = []
         for row in c:
-            name = self.normalize_name(row["fname"])
-            orig_colname = row["fname"]
+            name = self.normalize_name(row.fname)
+            orig_colname = row.fname
 
             # get the data type
-            colspec = row["ftype"].rstrip()
+            colspec = row.ftype.rstrip()
             coltype = self.ischema_names.get(colspec)
             if coltype is None:
                 util.warn(
@@ -917,16 +934,14 @@ class FBDialect(default.DefaultDialect):
                     % (colspec, name)
                 )
                 coltype = sqltypes.NULLTYPE
-            elif issubclass(coltype, Integer) and row["fprec"] != 0:
-                coltype = NUMERIC(
-                    precision=row["fprec"], scale=row["fscale"] * -1
-                )
+            elif issubclass(coltype, Integer) and row.fprec != 0:
+                coltype = NUMERIC(precision=row.fprec, scale=row.fscale * -1)
             elif colspec in ("VARYING", "CSTRING"):
-                coltype = coltype(row["flen"])
+                coltype = coltype(row.flen)
             elif colspec == "TEXT":
-                coltype = TEXT(row["flen"])
+                coltype = TEXT(row.flen)
             elif colspec == "BLOB":
-                if row["stype"] == 1:
+                if row.stype == 1:
                     coltype = TEXT()
                 else:
                     coltype = BLOB()
@@ -935,12 +950,12 @@ class FBDialect(default.DefaultDialect):
 
             # does it have a default value?
             defvalue = None
-            if row["fdefault"] is not None:
+            if row.fdefault is not None:
                 # the value comes down as "DEFAULT 'value'": there may be
                 # more than one whitespace around the "DEFAULT" keyword
                 # and it may also be lower case
                 # (see also http://tracker.firebirdsql.org/browse/CORE-356)
-                defexpr = row["fdefault"].lstrip()
+                defexpr = row.fdefault.lstrip()
                 assert defexpr[:8].rstrip().upper() == "DEFAULT", (
                     "Unrecognized default value: %s" % defexpr
                 )
@@ -951,7 +966,7 @@ class FBDialect(default.DefaultDialect):
             col_d = {
                 "name": name,
                 "type": coltype,
-                "nullable": not bool(row["null_flag"]),
+                "nullable": not bool(row.null_flag),
                 "default": defvalue,
                 "autoincrement": "auto",
             }
@@ -959,8 +974,8 @@ class FBDialect(default.DefaultDialect):
             if orig_colname.lower() == orig_colname:
                 col_d["quote"] = True
 
-            if row["computed_source"] is not None:
-                col_d["computed"] = {"sqltext": row["computed_source"]}
+            if row.computed_source is not None:
+                col_d["computed"] = {"sqltext": row.computed_source}
 
             # if the PK is a single field, try to see if its linked to
             # a sequence thru a trigger
@@ -993,7 +1008,7 @@ class FBDialect(default.DefaultDialect):
         """
         tablename = self.denormalize_name(table_name)
 
-        c = connection.execute(fkqry, ["FOREIGN KEY", tablename])
+        c = connection.exec_driver_sql(fkqry, ("FOREIGN KEY", tablename))
         fks = util.defaultdict(
             lambda: {
                 "name": None,
@@ -1005,15 +1020,13 @@ class FBDialect(default.DefaultDialect):
         )
 
         for row in c:
-            cname = self.normalize_name(row["cname"])
+            cname = self.normalize_name(row.cname)
             fk = fks[cname]
             if not fk["name"]:
                 fk["name"] = cname
-                fk["referred_table"] = self.normalize_name(row["targetrname"])
-            fk["constrained_columns"].append(self.normalize_name(row["fname"]))
-            fk["referred_columns"].append(
-                self.normalize_name(row["targetfname"])
-            )
+                fk["referred_table"] = self.normalize_name(row.targetrname)
+            fk["constrained_columns"].append(self.normalize_name(row.fname))
+            fk["referred_columns"].append(self.normalize_name(row.targetfname))
         return list(fks.values())
 
     @reflection.cache
@@ -1032,18 +1045,20 @@ class FBDialect(default.DefaultDialect):
           AND rdb$relation_constraints.rdb$constraint_type IS NULL
         ORDER BY index_name, ic.rdb$field_position
         """
-        c = connection.execute(qry, [self.denormalize_name(table_name)])
+        c = connection.exec_driver_sql(
+            qry, (self.denormalize_name(table_name),)
+        )
 
         indexes = util.defaultdict(dict)
         for row in c:
-            indexrec = indexes[row["index_name"]]
+            indexrec = indexes[row.index_name]
             if "name" not in indexrec:
-                indexrec["name"] = self.normalize_name(row["index_name"])
+                indexrec["name"] = self.normalize_name(row.index_name)
                 indexrec["column_names"] = []
-                indexrec["unique"] = bool(row["unique_flag"])
+                indexrec["unique"] = bool(row.unique_flag)
 
             indexrec["column_names"].append(
-                self.normalize_name(row["field_name"])
+                self.normalize_name(row.field_name)
             )
 
         return list(indexes.values())
