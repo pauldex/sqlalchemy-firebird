@@ -1,8 +1,9 @@
 from sqlalchemy.testing import engines
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
-from sqlalchemy.testing.mock import call
-from sqlalchemy.testing.mock import Mock
+
+from unittest.mock import call
+from unittest.mock import Mock
 
 
 class ArgumentTest(fixtures.TestBase):
