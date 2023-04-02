@@ -2,6 +2,7 @@ from sqlalchemy.dialects import registry
 import pytest
 
 registry.register("firebird", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
+registry.register("firebird.fdb", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
 
 pytest.register_assert_rewrite("sqlalchemy.testing.assertions")
 
