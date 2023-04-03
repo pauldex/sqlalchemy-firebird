@@ -93,237 +93,82 @@ from sqlalchemy.types import TEXT
 from sqlalchemy.types import TIME
 from sqlalchemy.types import TIMESTAMP
 
+# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-reskeywords-reswords
 RESERVED_WORDS = set(
     [
-        "active",
-        "add",
-        "admin",
-        "after",
-        "all",
-        "alter",
-        "and",
-        "any",
-        "as",
-        "asc",
-        "ascending",
-        "at",
-        "auto",
-        "avg",
-        "before",
-        "begin",
-        "between",
-        "bigint",
-        "bit_length",
-        "blob",
-        "both",
-        "by",
-        "case",
-        "cast",
-        "char",
-        "character",
-        "character_length",
-        "char_length",
-        "check",
-        "close",
-        "collate",
-        "column",
-        "commit",
-        "committed",
-        "computed",
-        "conditional",
-        "connect",
-        "constraint",
-        "containing",
-        "count",
-        "create",
-        "cross",
-        "cstring",
-        "current",
-        "current_connection",
-        "current_date",
-        "current_role",
-        "current_time",
-        "current_timestamp",
-        "current_transaction",
-        "current_user",
-        "cursor",
-        "database",
-        "date",
-        "day",
-        "dec",
-        "decimal",
-        "declare",
-        "default",
-        "delete",
-        "desc",
-        "descending",
-        "disconnect",
-        "distinct",
-        "do",
-        "domain",
-        "double",
-        "drop",
-        "else",
-        "end",
-        "entry_point",
-        "escape",
-        "exception",
-        "execute",
-        "exists",
-        "exit",
-        "external",
-        "extract",
-        "fetch",
-        "file",
-        "filter",
-        "float",
-        "for",
-        "foreign",
-        "from",
-        "full",
-        "function",
-        "gdscode",
-        "generator",
-        "gen_id",
-        "global",
-        "grant",
-        "group",
-        "having",
-        "hour",
-        "if",
-        "in",
-        "inactive",
-        "index",
-        "inner",
-        "input_type",
-        "insensitive",
-        "insert",
-        "int",
-        "integer",
-        "into",
-        "is",
-        "isolation",
-        "join",
-        "key",
-        "leading",
-        "left",
-        "length",
-        "level",
-        "like",
-        "long",
-        "lower",
-        "manual",
-        "max",
-        "maximum_segment",
-        "merge",
-        "min",
-        "minute",
-        "module_name",
-        "month",
-        "names",
-        "national",
-        "natural",
-        "nchar",
-        "no",
-        "not",
-        "null",
-        "numeric",
-        "octet_length",
-        "of",
-        "on",
-        "only",
-        "open",
-        "option",
-        "or",
-        "order",
-        "outer",
-        "output_type",
-        "overflow",
-        "page",
-        "pages",
-        "page_size",
-        "parameter",
-        "password",
-        "plan",
-        "position",
-        "post_event",
-        "precision",
-        "primary",
-        "privileges",
-        "procedure",
-        "protected",
-        "rdb$db_key",
-        "read",
-        "real",
-        "record_version",
-        "recreate",
-        "recursive",
-        "references",
-        "release",
-        "reserv",
-        "reserving",
-        "retain",
-        "returning_values",
-        "returns",
-        "revoke",
-        "right",
-        "rollback",
-        "rows",
-        "row_count",
-        "savepoint",
-        "schema",
-        "second",
-        "segment",
-        "select",
-        "sensitive",
-        "set",
-        "shadow",
-        "shared",
-        "singular",
-        "size",
-        "smallint",
-        "snapshot",
-        "some",
-        "sort",
-        "sqlcode",
-        "stability",
-        "start",
-        "starting",
-        "starts",
-        "statistics",
-        "sub_type",
-        "sum",
-        "suspend",
-        "table",
-        "then",
-        "time",
-        "timestamp",
-        "to",
-        "trailing",
-        "transaction",
-        "trigger",
-        "trim",
-        "uncommitted",
-        "union",
-        "unique",
-        "update",
-        "upper",
-        "user",
-        "using",
-        "value",
-        "values",
-        "varchar",
-        "variable",
-        "varying",
-        "view",
-        "wait",
-        "when",
-        "where",
-        "while",
-        "with",
-        "work",
-        "write",
-        "year",
+        "add","admin","all",
+        "alter","and","any",
+        "as","at","avg",
+        "begin","between","bigint",
+        "binary","bit_length","blob",
+        "boolean","both","by",
+        "case","cast","char",
+        "character","character_length","char_length",
+        "check","close","collate",
+        "column","comment","commit",
+        "connect","constraint","corr",
+        "count","covar_pop","covar_samp",
+        "create","cross","current",
+        "current_connection","current_date","current_role",
+        "current_time","current_timestamp","current_transaction",
+        "current_user","cursor","date",
+        "day","dec","decfloat",
+        "decimal","declare","default",
+        "delete","deleting","deterministic",
+        "disconnect","distinct","double",
+        "drop","else","end",
+        "escape","execute","exists",
+        "external","extract","false",
+        "fetch","filter","float",
+        "for","foreign","from",
+        "full","function","gdscode",
+        "global","grant","group",
+        "having","hour","in",
+        "index","inner","insensitive",
+        "insert","inserting","int",
+        "int128","integer","into",
+        "is","join","lateral",
+        "leading","left","like",
+        "local","localtime","localtimestamp",
+        "long","lower","max",
+        "merge","min","minute",
+        "month","national","natural",
+        "nchar","no","not",
+        "null","numeric","octet_length",
+        "of","offset","on",
+        "only","open","or",
+        "order","outer","over",
+        "parameter","plan","position",
+        "post_event","precision","primary",
+        "procedure","publication","rdb$db_key",
+        "rdb$error","rdb$get_context","rdb$get_transaction_cn",
+        "rdb$record_version","rdb$role_in_use","rdb$set_context",
+        "rdb$system_privilege","real","record_version",
+        "recreate","recursive","references",
+        "regr_avgx","regr_avgy","regr_count",
+        "regr_intercept","regr_r2","regr_slope",
+        "regr_sxx","regr_sxy","regr_syy",
+        "release","resetting","return",
+        "returning_values","returns","revoke",
+        "right","rollback","row",
+        "rows","row_count","savepoint",
+        "scroll","second","select",
+        "sensitive","set","similar",
+        "smallint","some","sqlcode",
+        "sqlstate","start","stddev_pop",
+        "stddev_samp","sum","table",
+        "then","time","timestamp",
+        "timezone_hour","timezone_minute","to",
+        "trailing","trigger","trim",
+        "true","unbounded","union",
+        "unique","unknown","update",
+        "updating","upper","user",
+        "using","value","values",
+        "varbinary","varchar","variable",
+        "varying","var_pop","var_samp",
+        "view","when","where",
+        "while","window","with",
+        "without","year",
     ]
 )
 
@@ -432,7 +277,7 @@ class FBCompiler(sql.compiler.SQLCompiler):
     # def visit_notcontains_op_binary(self, binary, operator, **kw):
     # cant use NOT CONTAINING b.c. it's case insensitive.
 
-    def visit_empty_set_expr(self, type_):
+    def visit_empty_set_expr(self, type_, **kw):
         # FB equivalent of Oracle's FROM DUAL courtesy of
         # http://www.firebirdfaq.org/faq30/
         return "SELECT 1 FROM RDB$DATABASE WHERE 0=1"
@@ -523,7 +368,7 @@ class FBCompiler(sql.compiler.SQLCompiler):
         """Already taken care of in the `get_select_precolumns` method."""
         return ""
 
-    def returning_clause(self, stmt, returning_cols):
+    def returning_clause(self, stmt, returning_cols, **kw):
         columns = [
             self._label_select_column(None, c, True, False, {})
             for c in expression._select_iterables(returning_cols)
@@ -573,7 +418,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
 
         return colspec
 
-    def visit_create_sequence(self, create):
+    def visit_create_sequence(self, create, **kw):
         """Generate a ``CREATE GENERATOR`` statement for the sequence."""
         # no syntax for these
         # http://www.firebirdsql.org/manual/generatorguide-sqlsyntax.html
@@ -595,7 +440,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
                 create.element
             )
 
-    def visit_drop_sequence(self, drop):
+    def visit_drop_sequence(self, drop, **kw):
         """Generate a ``DROP GENERATOR`` statement for the sequence."""
         if self.dialect._version_two:
             return "DROP SEQUENCE %s" % self.preparer.format_sequence(
@@ -606,7 +451,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
                 drop.element
             )
 
-    def visit_computed_column(self, generated):
+    def visit_computed_column(self, generated, **kw):
         if generated.persisted is not None:
             raise exc.CompileError(
                 "Firebird computed columns do not support a persistence "
@@ -654,15 +499,6 @@ class FBDialect(default.DefaultDialect):
     """Firebird dialect"""
 
     name = "firebird"
-
-    """
-        Firebird version 4.0 and greater have a maximum identifier length of
-        63 characters character set UTF8 (252 bytes).  Prior versions have a
-        maximum identifier length of 31 bytes.
-
-    max_identifier_length = 31
-
-    """
 
     supports_schemas = False
     supports_sequences = True
@@ -728,7 +564,7 @@ class FBDialect(default.DefaultDialect):
         else:
             self.max_identifier_length = 252
 
-    def has_table(self, connection, table_name, schema=None):
+    def has_table(self, connection, table_name, schema=None, **kw):
         """Return ``True`` if the given table exists, ignoring the `schema`."""
 
         # Can't have a table whose name is too long.
