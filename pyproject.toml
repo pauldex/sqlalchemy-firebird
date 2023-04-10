@@ -1,8 +1,17 @@
 [tool.pytest.ini_options]
 # for "normal" test output
-addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings"
+#addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings"
+# addopts = [
+#     "--import-mode=importlib",
+#     "--tb native",
+#     "--maxfail=300",
+#     "-v -r fxX -p no:warnings",
+# ]
 # for verbose test output (like engine.echo = True)
-#addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --log-info=sqlalchemy.engine"
+
+#addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --log-info=sqlalchemy.engine --dburi=firebird://sysdba@/E:\\\\Project\\\\_data\\\\sqla_test.fdb?charset=UTF8&fb_library_name=E:\\\\Project\\\\_data\\\\fb-4.0.2.2816-0-x64\\\\fbclient.dll"
+addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --log-info=sqlalchemy.engine"
+
 python_files = "test/*test_*.py"
 
 # SQLAlchemy-Firebird configuration for Black.
