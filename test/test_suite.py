@@ -125,15 +125,46 @@ class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
 class DifficultParametersTest(_DifficultParametersTest):
     @testing.skip("firebird")
     def test_round_trip(self):
-        # Table unknown
+        """
+        SQLAlchemy 1.4.43
+        Invalid column names in temp table
+
+        """
         return
 
-
-class ExpandingBoundInTest(_ExpandingBoundInTest):
     @testing.skip("firebird")
-    def test_null_in_empty_set_is_false(self):
-        # TODO: investigate why this formerly working test now fails
+    def test_round_trip_same_named_column(self):
+        """
+        SQLAlchemy 1.4.46
+        Invalid column names in temp table
+
+        """
         return
+
+    @testing.skip("firebird")
+    def test_standalone_bindparam_escape(self):
+        """
+        SQLAlchemy 1.4.46
+        Invalid column names in temp table
+
+        """
+        return
+
+    @testing.skip("firebird")
+    def test_standalone_bindparam_escape_expanding(self):
+        """
+        SQLAlchemy 1.4.46
+        Invalid column names in temp table
+
+        """
+        return
+    
+
+# class ExpandingBoundInTest(_ExpandingBoundInTest):
+    # @testing.skip("firebird")
+    # def test_null_in_empty_set_is_false(self):
+    #     # TODO: investigate why this formerly working test now fails
+    #     return
 
 
 class IdentityAutoincrementTest(_IdentityAutoincrementTest):
