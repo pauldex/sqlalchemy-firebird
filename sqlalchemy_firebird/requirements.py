@@ -4,6 +4,14 @@ from sqlalchemy.testing import exclusions
 
 class Requirements(SuiteRequirements):
     @property
+    def array_type(self):
+        return exclusions.open()
+
+    @property
+    def uuid_data_type(self):
+        return exclusions.open()
+
+    @property
     def autoincrement_insert(self):
         return exclusions.closed()
 

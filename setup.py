@@ -50,6 +50,7 @@ setup(
     entry_points={
         "sqlalchemy.dialects": [
             "firebird = sqlalchemy_firebird.fdb:FBDialect_fdb",
+            "firebird.fdb = sqlalchemy_firebird.fdb:FBDialect_fdb",
         ]
     },
 )
