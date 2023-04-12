@@ -30,6 +30,7 @@ __version__ = "0.8.0"
 base.dialect = dialect = fdb.dialect
 
 _registry.register("firebird", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
+_registry.register("firebird.fdb", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
 
 __all__ = (
     "SMALLINT",
