@@ -1215,7 +1215,7 @@ class FBDialect(default.DefaultDialect):
     postfetch_lastrowid = False
 
     supports_comments = True
-    inline_comments = True
+    inline_comments = False
 
     supports_native_boolean = False
 
