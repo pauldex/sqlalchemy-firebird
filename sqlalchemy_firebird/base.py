@@ -1280,6 +1280,7 @@ class FBDialect(default.DefaultDialect):
             self.max_identifier_length = 63
             self.preparer.reserved_words = RESERVED_WORDS_40
 
+    @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
         """Return ``True`` if the given table exists, ignoring the `schema`."""
 
