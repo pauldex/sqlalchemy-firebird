@@ -1221,11 +1221,8 @@ class FBDialect(default.DefaultDialect):
     ischema_names = ischema_names
 
     construct_arguments = [
-        (
-            sa_schema.Table,
-            {"on_commit": None},
-        ),
-        (sa_schema.Column, {"identity_start": 0}),
+        (sa_schema.Table, {"on_commit": None}),
+        (sa_schema.Column, {"identity_start": 1}),
     ]
 
     # defaults to dialect ver. 3,
