@@ -1205,9 +1205,7 @@ class FBDialect(default.DefaultDialect):
 
     name = "firebird"
 
-    # max_identifier_length is updated when Firebird version is known
     max_identifier_length = 31
-
     supports_schemas = False
     supports_sequences = True
     sequences_optional = False
