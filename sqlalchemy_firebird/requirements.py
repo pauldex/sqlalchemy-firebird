@@ -82,9 +82,12 @@ class Requirements(SuiteRequirements):
         return exclusions.open()
 
     @property
+    def check_constraint_reflection(self):
+        return exclusions.open()
+
+    @property
     def unique_constraint_reflection(self):
-        # TODO: Research ways to support this in Firebird
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def comment_reflection(self):

@@ -1643,3 +1643,77 @@ class FBDialect(default.DefaultDialect):
             qry, {"tbl_name": self.denormalize_name(table_name)}
         )
         return {"text": c.scalar()}
+
+    @reflection.cache
+    def get_check_constraints(self, connection, table_name, schema=None, **kw):
+        ccqry = """
+            SELECT
+                TRIM(rc.rdb$constraint_name) AS cname,
+                TRIM(SUBSTRING(tr.rdb$trigger_source FROM 8 FOR CHAR_LENGTH(tr.rdb$trigger_source) - 8)) AS sqltext
+            FROM
+                rdb$relation_constraints rc
+                JOIN rdb$check_constraints ck
+                    ON (ck.rdb$constraint_name = rc.rdb$constraint_name)
+                JOIN rdb$triggers tr
+                    ON (tr.rdb$trigger_name = ck.rdb$trigger_name AND
+                        tr.rdb$trigger_type = 1 /* BEFORE UPDATE */)
+            WHERE
+                rc.rdb$constraint_type = ? AND
+                rc.rdb$relation_name = ?
+            ORDER BY 1, 2
+        """
+        tablename = self.denormalize_name(table_name)
+
+        c = connection.exec_driver_sql(ccqry, ("CHECK", tablename))
+        ccs = util.defaultdict(
+            lambda: {
+                "name": None,
+                "sqltext": None,
+            }
+        )
+
+        for row in c:
+            cname = self.normalize_name(row.cname)
+            cc = ccs[cname]
+            if not cc["name"]:
+                cc["name"] = cname
+                cc["sqltext"] = row.sqltext
+        return list(ccs.values())
+
+    @reflection.cache
+    def get_unique_constraints(self, connection, table_name, schema=None, **kw):
+        ucqry = """
+            SELECT
+                TRIM(c.rdb$constraint_name) AS cname,
+                TRIM(s.rdb$field_name) AS column_name
+            FROM
+                rdb$index_segments s
+                JOIN rdb$relation_constraints c
+                    ON (c.rdb$index_name = s.rdb$index_name)
+                JOIN rdb$relations r
+                    ON (r.rdb$relation_name = c.rdb$relation_name AND
+                        r.rdb$system_flag = 0)
+            WHERE
+                c.rdb$constraint_type = ? AND
+                r.rdb$relation_name = ?
+            ORDER BY 
+                c.rdb$constraint_name,
+                s.rdb$field_position
+        """
+        tablename = self.denormalize_name(table_name)
+
+        c = connection.exec_driver_sql(ucqry, ("UNIQUE", tablename))
+        ucs = util.defaultdict(
+            lambda: {
+                "name": None,
+                "column_names": []
+            }
+        )
+
+        for row in c:
+            cname = self.normalize_name(row.cname)
+            cc = ucs[cname]
+            if not cc["name"]:
+                cc["name"] = cname
+            cc["column_names"].append(self.normalize_name(row.column_name))
+        return list(ucs.values())
