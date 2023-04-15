@@ -1207,6 +1207,10 @@ class FBDialect(default.DefaultDialect):
 
     supports_statement_cache = True
 
+    insert_returning = True
+    update_returning = True
+    delete_returning = True
+
     statement_compiler = FBCompiler
     ddl_compiler = FBDDLCompiler
     preparer = FBIdentifierPreparer
