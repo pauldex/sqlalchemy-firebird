@@ -1632,17 +1632,20 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_table_comment(self, connection, table_name, schema=None, **kw):
-        qry = text(
-            """
-            SELECT RDB$DESCRIPTION AS comment
+        tcqry = """
+            SELECT rdb$description AS comment
             FROM rdb$relations
-            WHERE rdb$relation_name=:tbl_name
-            """
-        )
-        c = connection.execute(
-            qry, {"tbl_name": self.denormalize_name(table_name)}
-        )
-        return {"text": c.scalar()}
+            WHERE rdb$relation_name = ?
+        """
+        tablename = self.denormalize_name(table_name)
+        
+        c = connection.exec_driver_sql(tcqry, (tablename,))
+        
+        comment = c.scalar()
+        if comment is None:
+            raise exc.NoSuchTableError(table_name)
+
+        return {"text": comment}
 
     @reflection.cache
     def get_check_constraints(self, connection, table_name, schema=None, **kw):
