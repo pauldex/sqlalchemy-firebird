@@ -1300,7 +1300,8 @@ class FBDialect(default.DefaultDialect):
         )
         return c.first() is not None
 
-    def has_sequence(self, connection, sequence_name, schema=None):
+    @reflection.cache
+    def has_sequence(self, connection, sequence_name, schema=None, **kw):
         """Return ``True`` if the given sequence (generator) exists."""
         genqry = """
         SELECT 1 AS has_sequence FROM rdb$database
