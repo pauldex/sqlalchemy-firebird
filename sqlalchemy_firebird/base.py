@@ -1468,7 +1468,8 @@ class FBDialect(default.DefaultDialect):
                         f.rdb$field_scale AS fscale,
                         COALESCE(r.rdb$default_source,
                                 f.rdb$default_source) AS fdefault,
-                        f.rdb$computed_source AS computed_source
+                        f.rdb$computed_source AS computed_source,
+                        r.rdb$identity_type AS autoincrement_flag
         FROM rdb$relation_fields r
              JOIN rdb$fields f ON r.rdb$field_source=f.rdb$field_name
              JOIN rdb$types t
@@ -1534,7 +1535,7 @@ class FBDialect(default.DefaultDialect):
                 "type": coltype,
                 "nullable": not bool(row.null_flag),
                 "default": defvalue,
-                "autoincrement": "auto",
+                "autoincrement": bool(row.autoincrement_flag)
             }
 
             if orig_colname.lower() == orig_colname:
