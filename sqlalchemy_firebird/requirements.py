@@ -4,6 +4,20 @@ from sqlalchemy.testing import exclusions
 
 class Requirements(SuiteRequirements):
     @property
+    def view_column_reflection(self):
+        return exclusions.open()
+
+    @property
+    def array_type(self):
+        # TODO: can Firebird support an array_type?
+        return exclusions.closed()
+
+    @property
+    def uuid_data_type(self):
+        # TODO: can Firebird support an uuid_data_type?
+        return exclusions.closed()
+
+    @property
     def autoincrement_insert(self):
         return exclusions.closed()
 
@@ -26,7 +40,6 @@ class Requirements(SuiteRequirements):
 
     @property
     def implicitly_named_constraints(self):
-        """Target database supports constraints without an explicit name."""
         return exclusions.open()
 
     @property
@@ -95,19 +108,3 @@ class Requirements(SuiteRequirements):
     @property
     def unbounded_varchar(self):
         return exclusions.fails("not supported by database")
-
-    #
-    # DefaultRequirements
-    #
-
-    # 1061
-    @property
-    def array_type(self):
-        # TODO: can Firebird support an array_type?
-        return exclusions.closed()
-
-    # 1993
-    @property
-    def uuid_data_type(self):
-        # Firebird does not have a native UUID data type.
-        return exclusions.closed()
