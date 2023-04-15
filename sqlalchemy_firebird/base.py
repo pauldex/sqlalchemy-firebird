@@ -1422,7 +1422,14 @@ class FBDialect(default.DefaultDialect):
         # get primary key fields
         c = connection.exec_driver_sql(keyqry, ("PRIMARY KEY", tablename))
         pkfields = [self.normalize_name(r.fname) for r in c.fetchall()]
-        return {"constrained_columns": pkfields, "name": None}
+
+        if pkfields:
+            return {"constrained_columns": pkfields, "name": None}
+        
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
+
+        return reflection.ReflectionDefaults.pk_constraint()
 
     @reflection.cache
     def get_column_sequence(
@@ -1552,7 +1559,14 @@ class FBDialect(default.DefaultDialect):
                     col_d["sequence"] = seq_d
 
             cols.append(col_d)
-        return cols
+
+        if cols:
+            return cols
+        
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
+        
+        return reflection.ReflectionDefaults.columns()
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
@@ -1594,7 +1608,15 @@ class FBDialect(default.DefaultDialect):
                 fk["referred_table"] = self.normalize_name(row.targetrname)
             fk["constrained_columns"].append(self.normalize_name(row.fname))
             fk["referred_columns"].append(self.normalize_name(row.targetfname))
-        return list(fks.values())
+
+        result = list(fks.values())
+        if result:
+            return result
+        
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
+        
+        return reflection.ReflectionDefaults.foreign_keys()
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
@@ -1628,7 +1650,14 @@ class FBDialect(default.DefaultDialect):
                 self.normalize_name(row.field_name)
             )
 
-        return list(indexes.values())
+        result = list(indexes.values())
+        if result:
+            return result
+        
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
+        
+        return reflection.ReflectionDefaults.indexes()
 
     @reflection.cache
     def get_table_comment(self, connection, table_name, schema=None, **kw):
@@ -1642,10 +1671,13 @@ class FBDialect(default.DefaultDialect):
         c = connection.exec_driver_sql(tcqry, (tablename,))
         
         comment = c.scalar()
-        if comment is None:
+        if comment is not None:
+            return {"text": comment}
+
+        if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
 
-        return {"text": comment}
+        return reflection.ReflectionDefaults.table_comment()
 
     @reflection.cache
     def get_check_constraints(self, connection, table_name, schema=None, **kw):
@@ -1681,7 +1713,15 @@ class FBDialect(default.DefaultDialect):
             if not cc["name"]:
                 cc["name"] = cname
                 cc["sqltext"] = row.sqltext
-        return list(ccs.values())
+
+        result = list(ccs.values())
+        if result:
+            return result
+        
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
+        
+        return reflection.ReflectionDefaults.check_constraints()
 
     @reflection.cache
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
@@ -1719,4 +1759,12 @@ class FBDialect(default.DefaultDialect):
             if not cc["name"]:
                 cc["name"] = cname
             cc["column_names"].append(self.normalize_name(row.column_name))
-        return list(ucs.values())
+
+        result = list(ucs.values())
+        if result:
+            return result
+        
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
+        
+        return reflection.ReflectionDefaults.unique_constraints()
