@@ -1046,31 +1046,15 @@ class FBCompiler(sql.compiler.SQLCompiler):
 
     def visit_sequence(self, seq, **kw):
         return "gen_id(%s, 1)" % self.preparer.format_sequence(seq)
-
-    def get_select_precolumns(self, select, **kw):
-        """
-        Called when building a ``SELECT`` statement, position is just
-        before column list Firebird puts the limit and offset right
-        after the ``SELECT``...
-
-        In Firebird, FIRST and SKIP require parentheses
-        for an integer expression.
-
-        Including parentheses for an integer literal or query parameter works,
-        even though they aren't needed,
-        """  # noqa
-        result = super(FBCompiler, self).get_select_precolumns(select, **kw)
-
-        if select._limit_clause is not None:
-            result += "FIRST (%s) " % self.process(select._limit_clause, **kw)
-        if select._offset_clause is not None:
-            result += "SKIP (%s) " % self.process(select._offset_clause, **kw)
-
-        return result
-
+    
     def limit_clause(self, select, **kw):
-        """Already taken care of in the `get_select_precolumns` method."""
-        return ""
+        # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-dml-select-offsetfetch
+        text = ""
+        if select._offset_clause is not None:
+            text += " \n OFFSET " + self.process(select._offset_clause, **kw) + " ROWS"
+        if select._limit_clause is not None:
+            text += " \n FETCH NEXT " + self.process(select._limit_clause, **kw) + " ROWS ONLY"
+        return text
 
     def returning_clause(self, stmt, returning_cols, **kw):
         columns = [
