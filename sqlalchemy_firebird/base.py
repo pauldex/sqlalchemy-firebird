@@ -26,11 +26,11 @@ all remaining cursor/connection resources.
 """  # noqa
 
 import datetime
+from enum import IntEnum, unique
 
 from sqlalchemy import exc
 from sqlalchemy import schema as sa_schema
 from sqlalchemy import sql
-from sqlalchemy import text
 from sqlalchemy import types as sqltypes
 from sqlalchemy import util
 from sqlalchemy.engine import default
@@ -876,6 +876,32 @@ RESERVED_WORDS_40 = {
     "year",
 }
 
+@unique
+class RelationType(IntEnum):
+    """
+    Firebird RDB$RELATION_TYPE values.
+    
+    Reference: https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref-appx04-relations
+    """
+
+    TABLE = 0
+    "System or user-defined table"
+    
+    VIEW = 1
+    "View"
+
+    EXTERNAL_TABLE = 2
+    "External table"
+
+    MONITORING_TABLE = 3
+    "Monitoring table"
+
+    TEMPORARY_TABLE_PRESERVE = 4
+    "Connection-level GTT (PRESERVE ROWS)"
+
+    TEMPORARY_TABLE_DELETE = 5
+    "Transaction-level GTT (DELETE ROWS)"
+
 
 class _StringType(sqltypes.String):
     """Base for Firebird string types."""
@@ -1161,6 +1187,43 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
             table_opts.append("\n ON COMMIT %s" % on_commit_options)
 
         return "".join(table_opts)
+    
+    def visit_create_index(
+        self, create, include_schema=False, include_table_schema=True, **kw
+    ):
+        index = create.element
+        self._verify_index_table(index)
+        preparer = self.preparer
+        text = "CREATE "
+        if index.unique:
+            text += "UNIQUE "
+        if index.name is None:
+            raise exc.CompileError("CREATE INDEX requires that the index have a name")
+
+        text += "INDEX %s ON %s " % (
+            self._prepared_index_name(index, include_schema=include_schema),
+            preparer.format_table(index.table, use_schema=include_table_schema),
+        )
+        
+        if index.expressions is None:
+            raise exc.CompileError("CREATE INDEX requires at least one column or expression")
+
+        first_expression = index.expressions[0] if len(index.expressions) > 0 else index.expressions
+        
+        if isinstance(first_expression, expression.ColumnClause):
+            # INDEX on columns
+            text += ", ".join(
+                self.sql_compiler.process(expr, include_table=False, literal_binds=True)
+                for expr in index.expressions
+            )
+        else:
+            # INDEX on expression
+            text += "COMPUTED BY (%s)" % " || ".join(
+                    self.sql_compiler.process(expr, include_table=False, literal_binds=True)
+                    for expr in index.expressions
+                )
+        return text
+
 
 
 class FBIdentifierPreparer(sql.compiler.IdentifierPreparer):
@@ -1209,6 +1272,8 @@ class FBDialect(default.DefaultDialect):
     supports_empty_insert = False
 
     supports_statement_cache = True
+
+    supports_is_distinct_from = True
 
     insert_returning = True
     update_returning = True
@@ -1280,78 +1345,67 @@ class FBDialect(default.DefaultDialect):
             self.preparer.reserved_words = RESERVED_WORDS_40
 
     @reflection.cache
-    def has_table(self, connection, table_name, schema=None, **kw):
+    def has_table(self, connection, table_name, relation_type=RelationType.TABLE, schema=None, **kw):
         """Return ``True`` if the given table exists, ignoring the `schema`."""
 
         # Can't have a table whose name is too long.
         if len(table_name) > self.max_identifier_length:
             return False
 
-        tblqry = text(
-            """
-            SELECT 1 AS has_table FROM rdb$database
-            WHERE EXISTS (SELECT rdb$relation_name
-                          FROM rdb$relations
-                          WHERE rdb$relation_name=:tbl_name)
-            """
-        )
-        c = connection.execute(
-            tblqry, {"tbl_name": self.denormalize_name(table_name)}
+        tblqry = """
+            SELECT 1 AS has_table
+            FROM rdb$relations
+            WHERE rdb$relation_name = ?
+                  AND rdb$relation_type = ?
+        """
+
+        c = connection.exec_driver_sql(
+            tblqry, 
+            (self.denormalize_name(table_name), relation_type)
         )
         return c.first() is not None
 
     @reflection.cache
     def has_sequence(self, connection, sequence_name, schema=None, **kw):
         """Return ``True`` if the given sequence (generator) exists."""
-        genqry = """
-        SELECT 1 AS has_sequence FROM rdb$database
-        WHERE EXISTS (SELECT rdb$generator_name
-                      FROM rdb$generators
-                      WHERE rdb$generator_name=?)
+        seqqry = """
+            SELECT 1 AS has_sequence 
+            FROM rdb$generators
+            WHERE rdb$generator_name = ?
         """
         c = connection.exec_driver_sql(
-            genqry, (self.denormalize_name(sequence_name),)
+            seqqry, 
+            (self.denormalize_name(sequence_name),)
         )
         return c.first() is not None
 
     @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
-        # there are two queries commonly mentioned for this.
-        # this one, using view_blr, is at the Firebird FAQ among other places:
-        # http://www.firebirdfaq.org/faq174/
-        s = """
-        select TRIM(rdb$relation_name) AS relation_name
-        from rdb$relations
-        where rdb$view_blr is null
-        and (rdb$system_flag is null or rdb$system_flag = 0)
-        and rdb$relation_type = 0;
+        tblqry = """
+            SELECT TRIM(rdb$relation_name) AS relation_name
+            FROM rdb$relations
+            WHERE rdb$view_blr IS NULL
+                AND (rdb$system_flag IS NULL OR rdb$system_flag = 0)
+                AND rdb$relation_type = 0;
         """
-
-        # the other query is this one.  It's not clear if there's really
-        # any difference between these two.  This link:
-        # http://www.alberton.info/firebird_sql_meta_info.html#.Ur3vXfZGni8
-        # states them as interchangeable.  Some discussion at [ticket:2898]
-        # SELECT DISTINCT rdb$relation_name
-        # FROM rdb$relation_fields
-        # WHERE rdb$system_flag=0 AND rdb$view_context IS NULL
 
         return [
             self.normalize_name(row.relation_name)
-            for row in connection.exec_driver_sql(s)
+            for row in connection.exec_driver_sql(tblqry)
         ]
 
     @reflection.cache
     def get_temp_table_names(self, connection, schema=None, **kw):
-        s = """
-        select TRIM(rdb$relation_name) AS relation_name
-        from rdb$relations
-        where rdb$view_blr is null
-        and (rdb$system_flag is null or rdb$system_flag = 0)
-        and rdb$relation_type in (4, 5);
+        tmpqry = """
+            SELECT TRIM(rdb$relation_name) AS relation_name
+            FROM rdb$relations
+            WHERE rdb$view_blr IS NULL
+                  AND (rdb$system_flag IS NULL OR rdb$system_flag = 0)
+                  AND rdb$relation_type IN (4, 5);
         """
         return [
             self.normalize_name(row.relation_name)
-            for row in connection.exec_driver_sql(s)
+            for row in connection.exec_driver_sql(tmpqry)
         ]
 
     @reflection.cache
@@ -1383,18 +1437,22 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_view_definition(self, connection, view_name, schema=None, **kw):
         qry = """
-        SELECT rdb$view_source AS view_source
-        FROM rdb$relations
-        WHERE rdb$relation_name=?
+            SELECT rdb$view_source AS view_source
+            FROM rdb$relations
+            WHERE rdb$relation_name = ?
+                AND rdb$relation_type = ?
         """
         rp = connection.exec_driver_sql(
-            qry, (self.denormalize_name(view_name),)
+            qry, (self.denormalize_name(view_name), RelationType.VIEW)
         )
         row = rp.first()
         if row:
             return row.view_source
-        else:
-            return None
+
+        if not self.has_table(connection, view_name, RelationType.VIEW):
+            raise exc.NoSuchTableError(view_name)
+
+        return None
 
     @reflection.cache
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
@@ -1413,8 +1471,10 @@ class FBDialect(default.DefaultDialect):
         if pkfields:
             return {"constrained_columns": pkfields, "name": None}
         
-        if not self.has_table(connection, table_name, schema):
-            raise exc.NoSuchTableError(table_name)
+        # TODO: should not raise when called from get_multi_*
+
+        # if not self.has_table(connection, table_name, schema):
+        #     raise exc.NoSuchTableError(table_name)
 
         return reflection.ReflectionDefaults.pk_constraint()
 
@@ -1505,7 +1565,6 @@ class FBDialect(default.DefaultDialect):
                 "type": coltype,
                 "nullable": not bool(row.null_flag),
                 "default": defvalue,
-                "autoincrement": row.identity_type is not None,
             }
 
             if orig_colname.lower() == orig_colname:
@@ -1535,20 +1594,21 @@ class FBDialect(default.DefaultDialect):
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
         # Query to extract the details of each UK/FK of the given table
         fkqry = """
-        SELECT TRIM(rc.rdb$constraint_name) AS cname,
-               TRIM(cse.rdb$field_name) AS fname,
-               TRIM(ix2.rdb$relation_name) AS targetrname,
-               TRIM(se.rdb$field_name) AS targetfname
-        FROM rdb$relation_constraints rc
-             JOIN rdb$indices ix1 ON ix1.rdb$index_name=rc.rdb$index_name
-             JOIN rdb$indices ix2 ON ix2.rdb$index_name=ix1.rdb$foreign_key
-             JOIN rdb$index_segments cse ON
-                        cse.rdb$index_name=ix1.rdb$index_name
-             JOIN rdb$index_segments se
-                  ON se.rdb$index_name=ix2.rdb$index_name
-                     AND se.rdb$field_position=cse.rdb$field_position
-        WHERE rc.rdb$constraint_type=? AND rc.rdb$relation_name=?
-        ORDER BY se.rdb$index_name, se.rdb$field_position
+            SELECT TRIM(rc.rdb$constraint_name) AS cname,
+                   TRIM(cse.rdb$field_name) AS fname,
+                   TRIM(ix2.rdb$relation_name) AS targetrname,
+                   TRIM(se.rdb$field_name) AS targetfname,
+                   TRIM(rfc.rdb$update_rule) AS update_rule,
+                   TRIM(rfc.rdb$delete_rule) AS delete_rule
+            FROM rdb$relation_constraints rc
+                 JOIN rdb$ref_constraints rfc ON rfc.rdb$constraint_name = rc.rdb$constraint_name
+                 JOIN rdb$indices ix1 ON ix1.rdb$index_name=rc.rdb$index_name
+                 JOIN rdb$indices ix2 ON ix2.rdb$index_name=ix1.rdb$foreign_key
+                 JOIN rdb$index_segments cse ON cse.rdb$index_name=ix1.rdb$index_name
+                 JOIN rdb$index_segments se ON se.rdb$index_name=ix2.rdb$index_name
+                                           AND se.rdb$field_position=cse.rdb$field_position
+            WHERE rc.rdb$constraint_type = ? AND rc.rdb$relation_name = ?
+            ORDER BY se.rdb$index_name, se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
 
@@ -1560,6 +1620,7 @@ class FBDialect(default.DefaultDialect):
                 "referred_schema": None,
                 "referred_table": None,
                 "referred_columns": [],
+                "options": {}
             }
         )
 
@@ -1571,22 +1632,29 @@ class FBDialect(default.DefaultDialect):
                 fk["referred_table"] = self.normalize_name(row.targetrname)
             fk["constrained_columns"].append(self.normalize_name(row.fname))
             fk["referred_columns"].append(self.normalize_name(row.targetfname))
+            if row.update_rule not in ['NO ACTION', 'RESTRICT']:
+                fk["options"]["onupdate"] = row.update_rule
+            if row.delete_rule not in ['NO ACTION', 'RESTRICT']:
+                fk["options"]["ondelete"] = row.delete_rule
 
         result = list(fks.values())
         if result:
             return result
         
-        if not self.has_table(connection, table_name, schema):
-            raise exc.NoSuchTableError(table_name)
+        # TODO: should not raise when called from get_multi_*
+
+        # if not self.has_table(connection, table_name, schema):
+        #     raise exc.NoSuchTableError(table_name)
         
         return reflection.ReflectionDefaults.foreign_keys()
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
-        qry = """
+        idxqry = """
         SELECT TRIM(ix.rdb$index_name) AS index_name,
                ix.rdb$unique_flag AS unique_flag,
-               TRIM(ic.rdb$field_name) AS field_name
+               TRIM(ic.rdb$field_name) AS field_name,
+               TRIM(ix.rdb$expression_source) expression_source
         FROM rdb$indices ix
              JOIN rdb$index_segments ic
                   ON ix.rdb$index_name=ic.rdb$index_name
@@ -1598,7 +1666,7 @@ class FBDialect(default.DefaultDialect):
         ORDER BY index_name, ic.rdb$field_position
         """
         c = connection.exec_driver_sql(
-            qry, (self.denormalize_name(table_name),)
+            idxqry, (self.denormalize_name(table_name),)
         )
 
         indexes = util.defaultdict(dict)
@@ -1608,6 +1676,9 @@ class FBDialect(default.DefaultDialect):
                 indexrec["name"] = self.normalize_name(row.index_name)
                 indexrec["column_names"] = []
                 indexrec["unique"] = bool(row.unique_flag)
+                if row.expression_source is not None:
+                    # TODO: Review this
+                    indexrec["expressions"] = row.expression_source.split(" || ")
 
             indexrec["column_names"].append(
                 self.normalize_name(row.field_name)
@@ -1617,8 +1688,10 @@ class FBDialect(default.DefaultDialect):
         if result:
             return result
         
-        if not self.has_table(connection, table_name, schema):
-            raise exc.NoSuchTableError(table_name)
+        # TODO: should not raise when called from get_multi_*
+
+        # if not self.has_table(connection, table_name, schema):
+        #     raise exc.NoSuchTableError(table_name)
         
         return reflection.ReflectionDefaults.indexes()
 
@@ -1637,9 +1710,11 @@ class FBDialect(default.DefaultDialect):
         if comment is not None:
             return {"text": comment}
 
-        if not self.has_table(connection, table_name, schema):
-            raise exc.NoSuchTableError(table_name)
+        # TODO: should not raise when called from get_multi_*
 
+        # if not self.has_table(connection, table_name, schema):
+        #     raise exc.NoSuchTableError(table_name)
+        
         return reflection.ReflectionDefaults.table_comment()
 
     @reflection.cache
@@ -1680,10 +1755,12 @@ class FBDialect(default.DefaultDialect):
         result = list(ccs.values())
         if result:
             return result
-        
-        if not self.has_table(connection, table_name, schema):
-            raise exc.NoSuchTableError(table_name)
-        
+
+        # TODO: should not raise when called from get_multi_*
+
+        # if not self.has_table(connection, table_name, schema):
+        #     raise exc.NoSuchTableError(table_name)
+                
         return reflection.ReflectionDefaults.check_constraints()
 
     @reflection.cache
@@ -1727,7 +1804,9 @@ class FBDialect(default.DefaultDialect):
         if result:
             return result
         
-        if not self.has_table(connection, table_name, schema):
-            raise exc.NoSuchTableError(table_name)
+        # TODO: should not raise when called from get_multi_*
+
+        # if not self.has_table(connection, table_name, schema):
+        #     raise exc.NoSuchTableError(table_name)
         
         return reflection.ReflectionDefaults.unique_constraints()
