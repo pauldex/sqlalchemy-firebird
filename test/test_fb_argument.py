@@ -1,7 +1,6 @@
 from sqlalchemy.testing import engines
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
-
 from unittest.mock import call
 from unittest.mock import Mock
 

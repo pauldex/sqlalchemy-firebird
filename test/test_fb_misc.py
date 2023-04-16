@@ -13,7 +13,6 @@ from sqlalchemy.testing import fixtures
 
 
 class MiscTest(fixtures.TestBase):
-
     __only_on__ = "firebird"
 
     @testing.provide_metadata

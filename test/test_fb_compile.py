@@ -26,7 +26,6 @@ from sqlalchemy_firebird.fdb import FBDialect_fdb
 
 
 class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
-
     __dialect__ = FBDialect_fdb()
 
     def test_alias(self):

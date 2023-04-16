@@ -158,13 +158,13 @@ class DifficultParametersTest(_DifficultParametersTest):
 
         """
         return
-    
+
 
 # class ExpandingBoundInTest(_ExpandingBoundInTest):
-    # @testing.skip("firebird")
-    # def test_null_in_empty_set_is_false(self):
-    #     # TODO: investigate why this formerly working test now fails
-    #     return
+# @testing.skip("firebird")
+# def test_null_in_empty_set_is_false(self):
+#     # TODO: investigate why this formerly working test now fails
+#     return
 
 
 class IdentityAutoincrementTest(_IdentityAutoincrementTest):
