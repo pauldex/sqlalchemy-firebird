@@ -25,7 +25,6 @@ all remaining cursor/connection resources.
 
 """  # noqa
 
-import datetime
 from enum import IntEnum, unique
 
 from sqlalchemy import exc
@@ -38,16 +37,21 @@ from sqlalchemy.engine import reflection
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import expression
 from sqlalchemy.types import BIGINT
+from sqlalchemy.types import BINARY
 from sqlalchemy.types import BLOB
+from sqlalchemy.types import BOOLEAN
 from sqlalchemy.types import DATE
+from sqlalchemy.types import DOUBLE_PRECISION
 from sqlalchemy.types import FLOAT
 from sqlalchemy.types import INTEGER
 from sqlalchemy.types import Integer
 from sqlalchemy.types import NUMERIC
+from sqlalchemy.types import REAL 
 from sqlalchemy.types import SMALLINT
 from sqlalchemy.types import TEXT
 from sqlalchemy.types import TIME
 from sqlalchemy.types import TIMESTAMP
+from sqlalchemy.types import VARBINARY
 
 RESERVED_WORDS_INITIAL = {
     "active",
@@ -929,39 +933,55 @@ class CHAR(_StringType, sqltypes.CHAR):
         super(CHAR, self).__init__(length=length, **kwargs)
 
 
-class _FBDateTime(sqltypes.DateTime):
-    def bind_processor(self, dialect):
-        def process(value):
-            if type(value) == datetime.date:
-                return datetime.datetime(value.year, value.month, value.day)
-            else:
-                return value
-
-        return process
-
-
-colspecs = {sqltypes.DateTime: _FBDateTime}
-
+# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-datatypes-syntax-scalar
 ischema_names = {
+    "SMALLINT": SMALLINT,
+    "INTEGER": INTEGER,
+    "BIGINT": BIGINT,
+    "INT128": BIGINT, # TODO: INT128
+
+    "REAL": REAL,
+    "FLOAT": FLOAT,
+    "DOUBLE PRECISION": DOUBLE_PRECISION,
+    "DECFLOAT": FLOAT, # TODO: DEFCLOAT
+
+    "BOOLEAN": BOOLEAN,
+
+    "DATE": DATE,
+    "TIME": TIME,
+    "TIME WITH TIME ZONE": TIME,
+    "TIME WITHOUT TIME ZONE": TIME,
+
+    "TIMESTAMP": TIMESTAMP,
+    "TIMESTAMP WITH TIME ZONE": TIMESTAMP,
+    "TIMESTAMP WITHOUT TIME ZONE": TIMESTAMP,
+
+    "DECIMAL": NUMERIC,
+    "NUMERIC": NUMERIC,
+
+    "VARCHAR": VARCHAR,
+    "CHAR VARYING": VARCHAR,
+    "CHARACTER VARYING": VARCHAR,
+    
+    "CHAR": CHAR,
+    "CHARACTER": CHAR,
+
+    "BINARY": BINARY,
+
+    "VARBINARY": VARBINARY,
+    "BINARY VARYING": VARBINARY,
+
+    # Compatibility
     "SHORT": SMALLINT,
     "LONG": INTEGER,
     "QUAD": FLOAT,
-    "FLOAT": FLOAT,
-    "DATE": DATE,
-    "TIME": TIME,
     "TEXT": TEXT,
     "INT64": BIGINT,
     "DOUBLE": FLOAT,
-    "TIMESTAMP": TIMESTAMP,
     "VARYING": VARCHAR,
     "CSTRING": CHAR,
     "BLOB": BLOB,
 }
-
-
-# TODO: date conversion types (should be implemented as _FBDateTime,
-# _FBDate, etc. as bind/result functionality is required)
-
 
 class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_boolean(self, type_, **kw):
@@ -994,6 +1014,22 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
             )
         basic = super(FBTypeCompiler, self).visit_VARCHAR(type_, **kw)
         return self._extend_string(type_, basic)
+
+    def visit_TIMESTAMP(self, type_, **kw):
+        return "TIMESTAMP%s %s" % (
+            "(%d)" % type_.precision
+            if getattr(type_, "precision", None) is not None
+            else "",
+            (type_.timezone and "WITH" or "WITHOUT") + " TIME ZONE",
+        )
+
+    def visit_TIME(self, type_, **kw):
+        return "TIME%s %s" % (
+            "(%d)" % type_.precision
+            if getattr(type_, "precision", None) is not None
+            else "",
+            (type_.timezone and "WITH" or "WITHOUT") + " TIME ZONE",
+        )
 
 
 class FBCompiler(sql.compiler.SQLCompiler):
@@ -1285,7 +1321,6 @@ class FBDialect(default.DefaultDialect):
     type_compiler = FBTypeCompiler
     execution_ctx_cls = FBExecutionContext
 
-    colspecs = colspecs
     ischema_names = ischema_names
 
     construct_arguments = [

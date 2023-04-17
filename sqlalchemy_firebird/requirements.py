@@ -180,6 +180,11 @@ class Requirements(SuiteRequirements):
     def datetime_timezone(self):
         # Firebird 4.0 only
         return exclusions.open()
+    
+    # 862
+    @property
+    def date_implicit_bound(self):
+        return exclusions.closed()
 
     # 888
     @property
