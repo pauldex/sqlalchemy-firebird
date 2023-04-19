@@ -222,7 +222,7 @@ class Requirements(SuiteRequirements):
     # 1330
     @property
     def order_by_col_from_union(self):
-        # Firebird does support ORDER BY alias in UNIONs.
+        # Firebird does not support ORDER BY alias in UNIONs.
         return exclusions.closed()
 
     # 1365
