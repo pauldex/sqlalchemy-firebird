@@ -1521,6 +1521,7 @@ class FBDialect(default.DefaultDialect):
         FROM rdb$relation_constraints rc
              JOIN rdb$index_segments se ON rc.rdb$index_name=se.rdb$index_name
         WHERE rc.rdb$constraint_type=? AND rc.rdb$relation_name=?
+        ORDER BY se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
         # get primary key fields
