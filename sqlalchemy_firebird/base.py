@@ -1110,12 +1110,36 @@ class FBCompiler(sql.compiler.SQLCompiler):
         return "gen_id(%s, 1)" % self.preparer.format_sequence(seq)
     
     def limit_clause(self, select, **kw):
-        # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-dml-select-offsetfetch
+        return self._handle_limit_fetch_clause(select, None, select._offset_clause, select._limit_clause, **kw)
+    
+    def fetch_clause(self, select, fetch_clause=None, **kw):
+        if fetch_clause is None:
+            fetch_clause = select._fetch_clause
+
+        return self._handle_limit_fetch_clause(select, fetch_clause, select._offset_clause, None, **kw)
+    
+    def _handle_limit_fetch_clause(self, select, fetch_clause, offset_clause, limit_clause, **kw):
+        # Albeit non-standard, ROWS is a better choice than OFFSET / FETCH in Firebird since
+        #   it is supported since Firebird 2.5 and it works with expressions.
+        # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-dml-select-rows
         text = ""
-        if select._offset_clause is not None:
-            text += " \n OFFSET " + self.process(select._offset_clause, **kw) + " ROWS"
-        if select._limit_clause is not None:
-            text += " \n FETCH NEXT " + self.process(select._limit_clause, **kw) + " ROWS ONLY"
+
+        fet = None if fetch_clause is None else self.process(fetch_clause, **kw)
+        off = None if offset_clause is None else self.process(offset_clause, **kw)
+        lim = None if limit_clause is None else self.process(limit_clause, **kw)
+
+        lim = fet if fet is not None else lim
+
+        if (lim is not None) and (off is not None):
+            # OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY  =>  ROWS 2 + 1 TO 2 + 5
+            text += " \n ROWS " + off + " + 1 TO " + off + " + " + lim
+        elif lim is not None:
+            # FETCH NEXT 5 ROWS ONLY  =>  ROWS 1 TO 5
+            text += " \n ROWS 1 TO " + lim
+        elif off is not None:
+            # OFFSET 2 ROWS  =>  ROWS 2 + 1 TO 9223372036854775807
+            text += " \n ROWS " + off + " + 1 TO 9223372036854775807"
+
         return text
 
     def returning_clause(self, stmt, returning_cols, **kw):

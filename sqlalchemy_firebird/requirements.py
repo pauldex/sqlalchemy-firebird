@@ -28,8 +28,7 @@ class Requirements(SuiteRequirements):
     @property
     def sql_expression_limit_offset(self):
         # Firebird accepts expression with (non-standard) "ROWS m TO n" syntax.
-        # But not with (SQL:2008 compliant) "OFFSET / FETCH" syntax.
-        return exclusions.closed()
+        return exclusions.open()
 
     # 222
     @property
