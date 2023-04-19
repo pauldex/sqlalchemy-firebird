@@ -1016,6 +1016,9 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
         return self._extend_string(type_, basic)
 
     def visit_TIMESTAMP(self, type_, **kw):
+        if self.dialect.server_version_info < (4,):
+            return super().visit_TIMESTAMP(type, **kw)
+        
         return "TIMESTAMP%s %s" % (
             "(%d)" % type_.precision
             if getattr(type_, "precision", None) is not None
@@ -1024,6 +1027,9 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
         )
 
     def visit_TIME(self, type_, **kw):
+        if self.dialect.server_version_info < (4,):
+            return super().visit_TIME(type, **kw)
+        
         return "TIME%s %s" % (
             "(%d)" % type_.precision
             if getattr(type_, "precision", None) is not None

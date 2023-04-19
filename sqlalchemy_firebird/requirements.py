@@ -178,14 +178,24 @@ class Requirements(SuiteRequirements):
     @property
     def datetime_timezone(self):
         # Firebird 4.0 only
-        return exclusions.open()
+        return exclusions.skip_if("firebird<4")
     
     # 862
     @property
     def date_implicit_bound(self):
         return exclusions.closed()
+    
+    # 871
+    @property
+    def time_implicit_bound(self):
+        return exclusions.closed()
 
-    # 888
+    # 880
+    @property
+    def datetime_implicit_bound(self):
+        return exclusions.closed()
+
+    # 889
     @property
     def datetime_microseconds(self):
         # Firebird does not support microseconds.
