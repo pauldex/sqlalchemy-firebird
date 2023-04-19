@@ -1517,9 +1517,40 @@ class FBDialect(default.DefaultDialect):
     def get_columns(  # noqa: C901
         self, connection, table_name, schema=None, **kw
     ):
+        is_fb25 = self.server_version_info < (3,)
         # Query to extract the details of all the fields of the given table
         tblqry = """
         SELECT TRIM(r.rdb$field_name) AS fname,
+                    r.rdb$null_flag AS null_flag,
+                    t.rdb$type_name AS ftype,
+                    f.rdb$field_sub_type AS stype,
+                    f.rdb$field_length/
+                        COALESCE(cs.rdb$bytes_per_character,1) AS flen,
+                    f.rdb$field_precision AS fprec,
+                    f.rdb$field_scale AS fscale,
+                    COALESCE(r.rdb$default_source,
+                            f.rdb$default_source) AS fdefault,
+                    f.rdb$computed_source AS computed_source,
+                    r.rdb$identity_type AS identity_type,
+                    g.rdb$initial_value AS identity_start,
+                    g.rdb$generator_increment AS identity_increment
+        FROM rdb$relation_fields r
+            JOIN rdb$fields f ON r.rdb$field_source=f.rdb$field_name
+            JOIN rdb$types t
+            ON t.rdb$type=f.rdb$field_type AND
+                    t.rdb$field_name='RDB$FIELD_TYPE'
+            LEFT JOIN rdb$character_sets cs ON
+                    f.rdb$character_set_id=cs.rdb$character_set_id
+            LEFT JOIN rdb$generators g ON
+                    g.rdb$generator_name = r.rdb$generator_name
+        WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
+        ORDER BY r.rdb$field_position
+        """
+
+        if is_fb25: 
+            # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
+            tblqry = """
+            SELECT TRIM(r.rdb$field_name) AS fname,
                         r.rdb$null_flag AS null_flag,
                         t.rdb$type_name AS ftype,
                         f.rdb$field_sub_type AS stype,
@@ -1529,22 +1560,18 @@ class FBDialect(default.DefaultDialect):
                         f.rdb$field_scale AS fscale,
                         COALESCE(r.rdb$default_source,
                                 f.rdb$default_source) AS fdefault,
-                        f.rdb$computed_source AS computed_source,
-                        r.rdb$identity_type AS identity_type,
-                        g.rdb$initial_value AS identity_start,
-                        g.rdb$generator_increment AS identity_increment
-        FROM rdb$relation_fields r
-             JOIN rdb$fields f ON r.rdb$field_source=f.rdb$field_name
-             JOIN rdb$types t
-              ON t.rdb$type=f.rdb$field_type AND
-                    t.rdb$field_name='RDB$FIELD_TYPE'
-             LEFT JOIN rdb$character_sets cs ON
-                    f.rdb$character_set_id=cs.rdb$character_set_id
-             LEFT JOIN rdb$generators g ON
-                    g.rdb$generator_name = r.rdb$generator_name
-        WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
-        ORDER BY r.rdb$field_position
-        """
+                        f.rdb$computed_source AS computed_source
+            FROM rdb$relation_fields r
+                JOIN rdb$fields f ON r.rdb$field_source=f.rdb$field_name
+                JOIN rdb$types t
+                ON t.rdb$type=f.rdb$field_type AND
+                        t.rdb$field_name='RDB$FIELD_TYPE'
+                LEFT JOIN rdb$character_sets cs ON
+                        f.rdb$character_set_id=cs.rdb$character_set_id
+            WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
+            ORDER BY r.rdb$field_position
+            """ 
+
         # get the PK, used to determine the eventual associated sequence
         pk_constraint = self.get_pk_constraint(connection, table_name)
         pkey_cols = pk_constraint["constrained_columns"]
@@ -1608,7 +1635,7 @@ class FBDialect(default.DefaultDialect):
             if row.computed_source is not None:
                 col_d["computed"] = {"sqltext": row.computed_source}
 
-            if row.identity_type is not None:
+            if (not is_fb25) and row.identity_type is not None:
                 seq_d = {}
                 seq_d["always"] = row.identity_type == 0
                 seq_d["start"] = row.identity_start
