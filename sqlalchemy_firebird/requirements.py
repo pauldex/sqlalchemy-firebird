@@ -53,8 +53,7 @@ class Requirements(SuiteRequirements):
     # 296
     @property
     def ctes(self):
-        # Firebird supports CTEs but setting this to open causes tests to hang (?!)
-        return exclusions.closed()
+        return exclusions.open()
     
     # 318
     @property
