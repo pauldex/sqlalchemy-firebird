@@ -5,11 +5,13 @@ from sqlalchemy.testing import exclusions
 class Requirements(SuiteRequirements):
     @property
     def array_type(self):
-        return exclusions.open()
+        # TODO: can Firebird support an array_type?
+        return exclusions.closed()
 
     @property
     def uuid_data_type(self):
-        return exclusions.open()
+        # TODO: can Firebird support an uuid_data_type?
+        return exclusions.closed()
 
     @property
     def autoincrement_insert(self):

@@ -286,6 +286,7 @@ class TableDDLTest(_TableDDLTest):
         a new database. You can use CREATE DATABASE or CREATE SCHEMA. They are
         synonymous."  See:
         https://firebirdsql.org/file/documentation/reference_manuals/fblangref25-en/html/fblangref25-ddl-db.html
+        TODO: check docs on schema support in other versions of Firebird
         """
         return
 
