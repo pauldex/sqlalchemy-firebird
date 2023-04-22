@@ -37,7 +37,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
             "FROM sometable AS sometable_1",
         )
         dialect = self.__dialect__
-        dialect._version_two = False
+        dialect._using_dialect_3 = False
         self.assert_compile(
             s,
             "SELECT sometable_1.col1, sometable_1.col2 "
@@ -129,7 +129,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         self.assert_compile(
             u,
             "UPDATE mytable SET name=:name RETURNING "
-            "char_length(mytable.name) AS length_1",
+            "CHAR_LENGTH(mytable.name) AS length_1",
         )
 
     def test_insert_returning(self):
@@ -164,7 +164,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         self.assert_compile(
             i,
             "INSERT INTO mytable (name) VALUES (:name) "
-            "RETURNING char_length(mytable.name) AS "
+            "RETURNING CHAR_LENGTH(mytable.name) AS "
             "length_1",
         )
 

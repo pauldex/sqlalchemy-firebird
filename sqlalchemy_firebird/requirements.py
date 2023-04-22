@@ -176,7 +176,7 @@ class Requirements(SuiteRequirements):
     # 847
     @property
     def datetime_timezone(self):
-        # Firebird 4.0 only
+        # Time zone support added in Firebird 4.
         return exclusions.skip_if("firebird<4")
     
     # 862
@@ -206,10 +206,16 @@ class Requirements(SuiteRequirements):
         # Firebird does not support microseconds.
         return exclusions.closed()
 
-    # 1105
+    # 1106
     @property
     def precision_numerics_enotation_small(self):
         return exclusions.open()
+    
+    # 1112
+    @property
+    def precision_numerics_enotation_large(self):
+        # Increased maximum precision of NUMERIC and DECIMAL to 38 digits in Firebird 4.
+        return exclusions.skip_if("firebird<4")
 
     # 1199
     @property
@@ -246,7 +252,8 @@ class Requirements(SuiteRequirements):
     # 1628
     @property
     def identity_columns(self):
-        return exclusions.open()
+        # Identity Column Type added in Firebird 3.
+        return exclusions.skip_if("firebird<3")
 
     # 1642
     @property
@@ -277,5 +284,3 @@ class Requirements(SuiteRequirements):
     def uuid_data_type(self):
         # Firebird does not have a native UUID data type.
         return exclusions.closed()
-
-    # TODO: Review "test_needs_autoincrement"
