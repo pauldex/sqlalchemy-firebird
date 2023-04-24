@@ -36,14 +36,6 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
             "SELECT sometable_1.col1, sometable_1.col2 "
             "FROM sometable AS sometable_1",
         )
-        dialect = self.__dialect__
-        dialect._using_dialect_3 = False
-        self.assert_compile(
-            s,
-            "SELECT sometable_1.col1, sometable_1.col2 "
-            "FROM sometable sometable_1",
-            dialect=dialect,
-        )
 
     def test_varchar_raise(self):
         for type_ in (
