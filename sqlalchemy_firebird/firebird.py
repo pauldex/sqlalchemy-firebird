@@ -1,8 +1,8 @@
 """
-.. dialect:: firebird+fdb3
-    :name: fdb3
+.. dialect:: firebird+firebird
+    :name: firebird
     :dbapi: firebird-driver
-    :connectstring: firebird+fdb3://user:password@host:port/path/to/db[?key=value&key=value...]
+    :connectstring: firebird+firebird://user:password@host:port/path/to/db[?key=value&key=value...]
     :url: https://pypi.org/project/firebird-driver/
 
     The firebird-driver package provides driver for Python 3.8+ and Firebird 3+. 
@@ -19,7 +19,7 @@ import firebird.driver
 from firebird.driver import driver_config
 
 
-class _binary_fdb3:
+class _binary_firebird:
     def bind_processor(self, dialect):
         def process(value):
             return None if value is None else bytes(value)
@@ -27,29 +27,29 @@ class _binary_fdb3:
         return process
 
 
-class BINARY_fdb3(_binary_fdb3, sqltypes.BINARY):
+class BINARY_firebird(_binary_firebird, sqltypes.BINARY):
     pass
 
 
-class VARBINARY_fdb3(_binary_fdb3, sqltypes.VARBINARY):
+class VARBINARY_firebird(_binary_firebird, sqltypes.VARBINARY):
     pass
 
 
-class LargeBinary_fdb3(_binary_fdb3, sqltypes.LargeBinary):
+class LargeBinary_firebird(_binary_firebird, sqltypes.LargeBinary):
     pass
 
 
-class FBDialect_fdb3(FBDialect):
-    name = "firebird.fdb3"
+class FBDialect_firebird(FBDialect):
+    name = "firebird.firebird"
     driver = "firebird-driver"
     supports_statement_cache = True
 
     colspecs = util.update_copy(
         FBDialect.colspecs,
         {
-            sqltypes.BINARY: BINARY_fdb3,
-            sqltypes.VARBINARY: VARBINARY_fdb3,
-            sqltypes.LargeBinary: LargeBinary_fdb3,
+            sqltypes.BINARY: BINARY_firebird,
+            sqltypes.VARBINARY: VARBINARY_firebird,
+            sqltypes.LargeBinary: LargeBinary_firebird,
         },
     )
 
@@ -121,4 +121,4 @@ def remove_keys(d, keys):
     return {x: d[x] for x in d if x not in keys}
 
 
-dialect = FBDialect_fdb3
+dialect = FBDialect_firebird

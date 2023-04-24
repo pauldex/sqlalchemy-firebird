@@ -5,7 +5,7 @@ from sqlalchemy.testing.suite import *  # noqa: F401, F403
 from sqlalchemy.testing.suite import CTETest as _CTETest
 
 from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
-sfrom sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
+from sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
 from sqlalchemy.testing.suite import NumericTest as _NumericTest
 from sqlalchemy.testing.suite import RowCountTest as _RowCountTest
 
