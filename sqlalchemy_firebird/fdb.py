@@ -55,25 +55,30 @@ accept every argument that Kinterbasdb does.
 """  # noqa
 
 from .kinterbasdb import FBDialect_kinterbasdb
-from sqlalchemy import util
+from sqlalchemy import util, __version__ as sqla_version
 
 
 class FBDialect_fdb(FBDialect_kinterbasdb):
     driver = "fdb"
     supports_statement_cache = True
+    using_dialect_3 = False
 
     def __init__(self, enable_rowcount=True, retaining=False, **kwargs):
         super(FBDialect_fdb, self).__init__(
             enable_rowcount=enable_rowcount, retaining=retaining, **kwargs
         )
 
-    @classmethod
-    def dbapi(cls):
-        return __import__("fdb")
+    if sqla_version < "2":
 
-    @classmethod
-    def import_dbapi(cls):
-        return __import__("fdb")
+        @classmethod
+        def dbapi(cls):
+            return __import__("fdb")
+
+    else:
+
+        @classmethod
+        def import_dbapi(cls):
+            return __import__("fdb")
 
     def create_connect_args(self, url):
         opts = url.translate_connect_args(username="user")
