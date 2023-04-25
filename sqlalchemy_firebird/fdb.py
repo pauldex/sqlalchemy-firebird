@@ -16,6 +16,7 @@ from .base import FBDialect
 
 import fdb
 
+
 class FBDialect_fdb(FBDialect):
     name = "firebird.fdb"
     driver = "fdb"
@@ -39,7 +40,7 @@ class FBDialect_fdb(FBDialect):
     def _get_server_version_info(self, connection):
         dbapi_connection = connection.connection.dbapi_connection
         minor, major = modf(dbapi_connection.engine_version)
-        return (int(major), int(minor))
+        return (int(major), int(minor * 10))
 
 
 dialect = FBDialect_fdb

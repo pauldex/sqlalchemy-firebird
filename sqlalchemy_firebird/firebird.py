@@ -114,7 +114,7 @@ class FBDialect_firebird(FBDialect):
     def _get_server_version_info(self, connection):
         dbapi_connection = connection.connection.dbapi_connection
         minor, major = modf(dbapi_connection.info.engine_version)
-        return (int(major), int(minor))
+        return (int(major), int(minor * 10))
 
 
 def remove_keys(d, keys):
