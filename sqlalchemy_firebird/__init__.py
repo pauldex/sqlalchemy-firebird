@@ -22,10 +22,7 @@ from . import base  # noqa
 from . import fdb  # noqa
 from . import provision  # noqa
 
-# Not supporting kinterbase
-# from . import kinterbasdb  # noqa
-
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 base.dialect = dialect = fdb.dialect
 

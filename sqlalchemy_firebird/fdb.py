@@ -5,32 +5,17 @@
     :connectstring: firebird+fdb://user:password@host:port/path/to/db[?key=value&key=value...]
     :url: http://pypi.python.org/pypi/fdb/
 
-    fdb is a kinterbasdb compatible DBAPI for Firebird.
-
-    .. versionchanged:: 0.9 - The fdb dialect is now the default dialect
-       under the ``firebird://`` URL space, as ``fdb`` is now the official
-       Python driver for Firebird.
+    fdb is a DBAPI for Firebird.
 
 Arguments
 ----------
 
-The ``fdb`` dialect is based on the
-:mod:`sqlalchemy.dialects.firebird.kinterbasdb` dialect, however does not
-accept every argument that Kinterbasdb does.
-
 * ``enable_rowcount`` - True by default, setting this to False disables
-  the usage of "cursor.rowcount" with the
-  Kinterbasdb dialect, which SQLAlchemy ordinarily calls upon automatically
-  after any UPDATE or DELETE statement.   When disabled, SQLAlchemy's
-  ResultProxy will return -1 for result.rowcount.   The rationale here is
-  that Kinterbasdb requires a second round trip to the database when
-  .rowcount is called -  since SQLA's resultproxy automatically closes
-  the cursor after a non-result-returning statement, rowcount must be
-  called, if at all, before the result object is returned.   Additionally,
-  cursor.rowcount may not return correct results with older versions
-  of Firebird, and setting this flag to False will also cause the
-  SQLAlchemy ORM to ignore its usage. The behavior can also be controlled on a
-  per-execution basis using the ``enable_rowcount`` option with
+  the usage of "cursor.rowcount", which SQLAlchemy ordinarily calls upon automatically
+  after any UPDATE or DELETE statement.  When disabled, SQLAlchemy's
+  ResultProxy will return -1 for result.rowcount.
+  
+  The behavior can also be controlled on a per-execution basis using the ``enable_rowcount`` option with
   :meth:`.Connection.execution_options`::
 
       conn = engine.connect().execution_options(enable_rowcount=True)
@@ -41,11 +26,8 @@ accept every argument that Kinterbasdb does.
   ``retaining=True`` keyword argument to the ``.commit()`` and ``.rollback()``
   methods of the DBAPI connection, which can improve performance in some
   situations, but apparently with significant caveats.
-  Please read the fdb and/or kinterbasdb DBAPI documentation in order to
+  Please read the fdb DBAPI documentation in order to
   understand the implications of this flag.
-
-  .. versionchanged:: 0.9.0 - the ``retaining`` flag defaults to ``False``.
-     In 0.8 it defaulted to ``True``.
 
   .. seealso::
 
@@ -54,19 +36,41 @@ accept every argument that Kinterbasdb does.
 
 """  # noqa
 
-from .kinterbasdb import FBDialect_kinterbasdb
-from sqlalchemy import util, __version__ as sqla_version
+from sqlalchemy import util
+from sqlalchemy import __version__ as sqla_version
+from re import match
+from .base import FBDialect
+from .base import FBExecutionContext
 
 
-class FBDialect_fdb(FBDialect_kinterbasdb):
+class FBExecutionContext_fdb(FBExecutionContext):
+    @property
+    def rowcount(self):
+        if self.execution_options.get(
+            "enable_rowcount", self.dialect.enable_rowcount
+        ):
+            return self.cursor.rowcount
+        else:
+            return -1
+
+
+class FBDialect_fdb(FBDialect):
     driver = "fdb"
+    supports_sane_rowcount = False
+    supports_sane_multi_rowcount = False
     supports_statement_cache = True
+    supports_native_decimal = True
+    execution_ctx_cls = FBExecutionContext_fdb
     using_dialect_3 = False
 
     def __init__(self, enable_rowcount=True, retaining=False, **kwargs):
         super(FBDialect_fdb, self).__init__(
             enable_rowcount=enable_rowcount, retaining=retaining, **kwargs
         )
+        self.enable_rowcount = enable_rowcount
+        self.retaining = retaining
+        if enable_rowcount:
+            self.supports_sane_rowcount = True
 
     if sqla_version < "2":
 
@@ -79,6 +83,12 @@ class FBDialect_fdb(FBDialect_kinterbasdb):
         @classmethod
         def import_dbapi(cls):
             return __import__("fdb")
+
+    def do_rollback(self, dbapi_connection):
+        dbapi_connection.rollback(self.retaining)
+
+    def do_commit(self, dbapi_connection):
+        dbapi_connection.commit(self.retaining)
 
     def create_connect_args(self, url):
         opts = url.translate_connect_args(username="user")
@@ -109,5 +119,35 @@ class FBDialect_fdb(FBDialect_kinterbasdb):
 
         return self._parse_version_info(version)
 
+
+    def _parse_version_info(self, version):
+        m = match(
+                r"\w+-[V|T](\d+)\.(\d+)\.(\d+)\.(\d+)( \w+ (\d+)\.(\d+))?", version
+        )
+        if not m:
+            raise AssertionError(
+                    "Could not determine version from string '%s'" % version
+            )
+
+        if m.group(5) is not None:
+            return tuple([int(x) for x in m.group(6, 7, 4)] + ["firebird"])
+        else:
+            return tuple([int(x) for x in m.group(1, 2, 3)] + ["interbase"])
+
+
+    def is_disconnect(self, e, connection, cursor):
+        if isinstance(
+            e, (self.dbapi.OperationalError, self.dbapi.ProgrammingError)
+        ):
+            msg = str(e)
+            return (
+                "Error writing data to the connection" in msg
+                or "Unable to complete network request to host" in msg
+                or "Invalid connection state" in msg
+                or "Invalid cursor state" in msg
+                or "connection shutdown" in msg
+            )
+        else:
+            return False
 
 dialect = FBDialect_fdb
