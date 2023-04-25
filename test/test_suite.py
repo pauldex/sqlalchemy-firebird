@@ -17,31 +17,57 @@ class CTETest(_CTETest):
     pass
 
 
-@pytest.mark.skip(reason="These tests hangs in Firebird 2.5.")
 class InsertBehaviorTest(_InsertBehaviorTest):
-    @testing.skip("firebird=2", reason="This test hangs in Firebird 2.0")
+    @testing.skip(
+        lambda config: config.db.dialect.server_version_info == (2, 5),
+        "This test hangs in Firebird 2.5",
+    )
     def test_insert_from_select(self):
-        pass
+        super()
+
+    @testing.skip(
+        lambda config: config.db.dialect.server_version_info == (2, 5),
+        "This test hangs in Firebird 2.5",
+    )
+    def test_insert_from_select_with_defaults(self):
+        super()
 
 
-@pytest.mark.skip(reason="These tests hangs in Firebird 3.0.")
+@pytest.mark.skip(
+    reason="Just the skip below is not enough to stop the tests hanging (!?)."
+)
 class CompoundSelectTest(_CompoundSelectTest):
-    @testing.skip("firebird=3", reason="This test hangs in Firebird 3.0")
+    @testing.skip(
+        lambda config: config.db.dialect.driver == "fdb"
+        and config.db.dialect.server_version_info == (3, 0),
+        "This test hangs in Firebird 3.0",
+    )
     def test_limit_offset_aliased_selectable_in_unions(self):
-        pass
+        super()
 
 
 class NumericTest(_NumericTest):
     @testing.skip(
-        "firebird+fdb=4", reason="This test hangs in Firebird 4.0 with fdb"
+        lambda config: config.db.dialect.server_version_info == (3, 0),
+        "This test hangs in Firebird 3.0",
+    )
+    def test_limit_offset_aliased_selectable_in_unions(self):
+        super()
+
+    @testing.skip(
+        lambda config: config.db.dialect.driver == "fdb"
+        and config.db.dialect.server_version_info == (4, 0),
+        "This test hangs in Firebird 4.0 with fdb",
     )
     def test_enotation_decimal_large(self):
-        return
+        super()
 
 
 class RowCountTest(_RowCountTest):
     @testing.skip(
-        "firebird+fdb=4", reason="This test hangs in Firebird 4.0 with fdb"
+        lambda config: config.db.dialect.driver == "fdb"
+        and config.db.dialect.server_version_info == (4, 0),
+        "This test hangs in Firebird 4.0 with fdb",
     )
     def test_update_rowcount2(self):
-        pass
+        super()
