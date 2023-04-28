@@ -1,39 +1,12 @@
 """
 .. dialect:: firebird+fdb
     :name: fdb
-    :dbapi: pyodbc
+    :dbapi: fdb
     :connectstring: firebird+fdb://user:password@host:port/path/to/db[?key=value&key=value...]
     :url: http://pypi.python.org/pypi/fdb/
 
-    fdb is a DBAPI for Firebird.
-
-Arguments
-----------
-
-* ``enable_rowcount`` - True by default, setting this to False disables
-  the usage of "cursor.rowcount", which SQLAlchemy ordinarily calls upon automatically
-  after any UPDATE or DELETE statement.  When disabled, SQLAlchemy's
-  ResultProxy will return -1 for result.rowcount.
-  
-  The behavior can also be controlled on a per-execution basis using the ``enable_rowcount`` option with
-  :meth:`.Connection.execution_options`::
-
-      conn = engine.connect().execution_options(enable_rowcount=True)
-      r = conn.execute(stmt)
-      print r.rowcount
-
-* ``retaining`` - False by default.   Setting this to True will pass the
-  ``retaining=True`` keyword argument to the ``.commit()`` and ``.rollback()``
-  methods of the DBAPI connection, which can improve performance in some
-  situations, but apparently with significant caveats.
-  Please read the fdb DBAPI documentation in order to
-  understand the implications of this flag.
-
-  .. seealso::
-
-    http://pythonhosted.org/fdb/usage-guide.html#retaining-transactions
-    - information on the "retaining" flag.
-
+    The FDB package provides legacy driver for Python 2 and 3, and Firebird 2.x and 3. 
+    This driver uses classic Firebird API provided by fbclient library.
 """  # noqa
 
 from sqlalchemy import util
@@ -55,6 +28,7 @@ class FBExecutionContext_fdb(FBExecutionContext):
 
 
 class FBDialect_fdb(FBDialect):
+    name = "firebird.fdb"
     driver = "fdb"
     supports_sane_rowcount = False
     supports_sane_multi_rowcount = False
@@ -119,21 +93,19 @@ class FBDialect_fdb(FBDialect):
 
         return self._parse_version_info(version)
 
-
     def _parse_version_info(self, version):
         m = match(
-                r"\w+-[V|T](\d+)\.(\d+)\.(\d+)\.(\d+)( \w+ (\d+)\.(\d+))?", version
+            r"\w+-[V|T](\d+)\.(\d+)\.(\d+)\.(\d+)( \w+ (\d+)\.(\d+))?", version
         )
         if not m:
             raise AssertionError(
-                    "Could not determine version from string '%s'" % version
+                "Could not determine version from string '%s'" % version
             )
 
         if m.group(5) is not None:
             return tuple([int(x) for x in m.group(6, 7, 4)] + ["firebird"])
         else:
             return tuple([int(x) for x in m.group(1, 2, 3)] + ["interbase"])
-
 
     def is_disconnect(self, e, connection, cursor):
         if isinstance(
@@ -149,5 +121,6 @@ class FBDialect_fdb(FBDialect):
             )
         else:
             return False
+
 
 dialect = FBDialect_fdb
