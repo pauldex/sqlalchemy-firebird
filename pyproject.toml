@@ -1,10 +1,10 @@
 [tool.pytest.ini_options]
-#addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --dburi=firebird://sysdba@/E:\\\\Project\\\\_data\\\\sqla_test.fdb?charset=UTF8&fb_library_name=E:\\\\Project\\\\_data\\\\fb-4.0.2.2816-0-x64\\\\fbclient.dll"
-# for verbose test output (like engine.echo = True)
-addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --dburi=firebird://sysdba@/E:\\\\Project\\\\_data\\\\sqla_test.fdb?charset=UTF8&fb_library_name=E:\\\\Project\\\\_data\\\\fb-4.0.2.2816-0-x64\\\\fbclient.dll --log-info=sqlalchemy.engine "
-#addopts = "--tb native -v -r fxX --maxfail=300 -p no:warnings --log-info=sqlalchemy.engine --dburi=firebird://sysdba@/E:\\\\Project\\\\_data\\\\sqla_test.fdb?charset=UTF8&fb_library_name=E:\\\\Project\\\\_data\\\\fb-3.0.10.33601-0-x64\\\\fbclient.dll"
-# TODO: check on why we get an undefined marker message when running pytest with SQLA 2.
-#markers = "backend: mark test as for the backend"
+addopts = "--tb native -v -r fxX --maxfail=100 -p no:warnings --log-info=sqlalchemy.engine "
+
+markers = [
+     "backend: mark test as for the backend",
+]
+
 python_files = "test/*test_*.py"
 
 # SQLAlchemy-Firebird configuration for Black.
