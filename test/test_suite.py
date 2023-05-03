@@ -9,6 +9,9 @@ from sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
 from sqlalchemy.testing.suite import NumericTest as _NumericTest
 from sqlalchemy.testing.suite import RowCountTest as _RowCountTest
 
+from sqlalchemy.testing.suite import DateTimeTZTest as _DateTimeTZTest
+from sqlalchemy.testing.suite import TimeTZTest as _TimeTZTest
+
 
 @pytest.mark.skip(
     reason="These tests fails in Firebird because a DELETE FROM <table> with self-referencing FK raises integrity errors."
@@ -71,3 +74,25 @@ class RowCountTest(_RowCountTest):
     )
     def test_update_rowcount2(self):
         super()
+
+
+# Firebird-driver needs special time zone handling.
+#   https://github.com/FirebirdSQL/python3-driver/issues/19#issuecomment-1523045743
+class DateTimeTZTest(_DateTimeTZTest):
+    def setup_method(self, method):
+        super()
+
+        from firebird.driver.types import get_timezone
+
+        self.data = datetime.datetime(
+            2012, 10, 15, 12, 57, 18, tzinfo=get_timezone("UTC")
+        )
+
+
+class TimeTZTest(_TimeTZTest):
+    def setup_method(self, method):
+        super()
+
+        from firebird.driver.types import get_timezone
+
+        self.data = datetime.time(12, 57, 18, tzinfo=get_timezone("UTC"))

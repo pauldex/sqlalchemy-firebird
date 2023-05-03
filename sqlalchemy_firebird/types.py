@@ -1,5 +1,6 @@
 from sqlalchemy import types as sqltypes
 
+
 class _StringType(sqltypes.String):
     """Base for Firebird string types."""
 
