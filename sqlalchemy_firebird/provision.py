@@ -21,10 +21,7 @@ HAS_DDL_PENDING = False
 def receive_before_execute(connection, statement, *arg):
     global HAS_DDL_PENDING
 
-    if isinstance(statement, CreateTable) or \
-       isinstance(statement, DropTable) or \
-       isinstance(statement, CreateIndex) or \
-       isinstance(statement, DropIndex):
+    if isinstance(statement, (CreateTable, DropTable, CreateIndex, DropIndex)):
         HAS_DDL_PENDING = True
         return
 
