@@ -864,6 +864,7 @@ RESERVED_WORDS_40 = {
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-datatypes-syntax-scalar
 ischema_names = {
     "SMALLINT": SMALLINT,
+    "INT": INTEGER,
     "INTEGER": INTEGER,
     "BIGINT": BIGINT,
     "INT128": BIGINT, # TODO: INT128
