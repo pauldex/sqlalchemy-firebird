@@ -3,7 +3,7 @@ start powershell {
     .\.venv\Scripts\activate
 
     while ($true) {
-        .\t.ps1 -Db 'fdb_fb25' -Full
+        .\run-test.ps1 -Db 'fdb_fb25' -Full
         pause
     }
 }
@@ -13,7 +13,7 @@ start powershell {
     .\.venv\Scripts\activate
 
     while ($true) {
-        .\t.ps1 -Db 'fdb_fb30' -Full
+        .\run-test.ps1 -Db 'fdb_fb30' -Full
         pause
     }
 }
@@ -23,7 +23,7 @@ start powershell {
     .\.venv\Scripts\activate
 
     while ($true) {
-        .\t.ps1 -Db 'fdb_fb40' -Full
+        .\run-test.ps1 -Db 'fdb_fb40' -Full
         pause
     }
 }

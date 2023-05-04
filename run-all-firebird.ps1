@@ -3,7 +3,7 @@ start powershell {
     .\.venv\Scripts\activate
 
     while ($true) {
-        .\t.ps1 -Db 'firebird_fb30' -Full
+        .\run-test.ps1 -Db 'firebird_fb30' -Full
         pause
     }
 }
@@ -13,7 +13,7 @@ start powershell {
     .\.venv\Scripts\activate
 
     while ($true) {
-        .\t.ps1 -Db 'firebird_fb40' -Full
+        .\run-test.ps1 -Db 'firebird_fb40' -Full
         pause
     }
 }
