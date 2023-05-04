@@ -5,7 +5,6 @@
 # This module is part of SQLAlchemy and is released under
 # the MIT License: http://www.opensource.org/licenses/mit-license.php
 
-from sqlalchemy.dialects import registry as _registry
 
 from .base import BIGINT
 from .base import BLOB
@@ -22,12 +21,8 @@ from . import base  # noqa
 from . import fdb  # noqa
 from . import provision  # noqa
 
-__version__ = "0.8.2"
+__version__ = "0.8.3"
 
-base.dialect = dialect = fdb.dialect
-
-_registry.register("firebird", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
-_registry.register("firebird.fdb", "sqlalchemy_firebird.fdb", "FBDialect_fdb")
 
 __all__ = (
     "SMALLINT",

@@ -103,7 +103,7 @@ class Requirements(SuiteRequirements):
     # 1061
     @property
     def array_type(self):
-        # TODO: can Firebird support an array_type?
+        # TODO:  implement Firebird ARRAY type - see visit_ARRAY in base.py
         return exclusions.closed()
 
     # 1993
