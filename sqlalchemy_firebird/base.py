@@ -1591,7 +1591,7 @@ class FBDialect(default.DefaultDialect):
                  JOIN rdb$index_segments se ON se.rdb$index_name=ix2.rdb$index_name
                                            AND se.rdb$field_position=cse.rdb$field_position
             WHERE rc.rdb$constraint_type = ? AND rc.rdb$relation_name = ?
-            ORDER BY se.rdb$index_name, se.rdb$field_position
+            ORDER BY rc.rdb$constraint_name, se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
 
