@@ -1420,12 +1420,11 @@ class FBDialect(default.DefaultDialect):
                     r.rdb$null_flag AS null_flag,
                     t.rdb$type_name AS ftype,
                     f.rdb$field_sub_type AS stype,
-                    f.rdb$field_length/
-                        COALESCE(cs.rdb$bytes_per_character,1) AS flen,
+                    f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
                     f.rdb$field_precision AS fprec,
                     f.rdb$field_scale AS fscale,
-                    COALESCE(r.rdb$default_source,
-                            f.rdb$default_source) AS fdefault,
+                    COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
+                    r.rdb$description AS fcomment,
                     f.rdb$computed_source AS computed_source,
                     r.rdb$identity_type AS identity_type,
                     g.rdb$initial_value AS identity_start,
@@ -1450,12 +1449,11 @@ class FBDialect(default.DefaultDialect):
                         r.rdb$null_flag AS null_flag,
                         t.rdb$type_name AS ftype,
                         f.rdb$field_sub_type AS stype,
-                        f.rdb$field_length/
-                            COALESCE(cs.rdb$bytes_per_character,1) AS flen,
+                        f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
                         f.rdb$field_precision AS fprec,
                         f.rdb$field_scale AS fscale,
-                        COALESCE(r.rdb$default_source,
-                                f.rdb$default_source) AS fdefault,
+                        COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
+                        r.rdb$description AS fcomment,
                         f.rdb$computed_source AS computed_source
             FROM rdb$relation_fields r
                 JOIN rdb$fields f ON r.rdb$field_source=f.rdb$field_name
@@ -1518,11 +1516,12 @@ class FBDialect(default.DefaultDialect):
                 if defvalue == "NULL":
                     # Redundant
                     defvalue = None
+                   
             col_d = {
                 "name": name,
                 "type": coltype,
                 "nullable": not bool(row.null_flag),
-                "default": defvalue,
+                "default": defvalue
             }
 
             if orig_colname.lower() == orig_colname:
@@ -1530,6 +1529,9 @@ class FBDialect(default.DefaultDialect):
 
             if row.computed_source is not None:
                 col_d["computed"] = {"sqltext": row.computed_source}
+
+            if row.fcomment is not None:
+                col_d["comment"] = row.fcomment
 
             if (not is_fb25) and row.identity_type is not None:
                 seq_d = {}

@@ -87,6 +87,12 @@ class Requirements(SuiteRequirements):
     def comment_reflection(self):
         return exclusions.open()
 
+    # 659
+    @property
+    def comment_reflection_full_unicode(self):
+        # Only working in Firebird 4.
+        return exclusions.skip_if("firebird<4")
+
     # 699
     @property
     def foreign_key_constraint_option_reflection_ondelete(self):
