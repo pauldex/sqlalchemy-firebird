@@ -1393,7 +1393,37 @@ class FBDialect(default.DefaultDialect):
         is_fb25 = self.server_version_info < (3,)
         # Query to extract the details of all the fields of the given table
         tblqry = """
-        SELECT TRIM(r.rdb$field_name) AS fname,
+            SELECT TRIM(r.rdb$field_name) AS fname,
+                r.rdb$null_flag AS null_flag,
+                t.rdb$type_name AS ftype,
+                f.rdb$field_sub_type AS stype,
+                f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
+                f.rdb$field_precision AS fprec,
+                f.rdb$field_scale AS fscale,
+                COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
+                TRIM(r.rdb$description) AS fcomment,
+                f.rdb$computed_source AS computed_source,
+                r.rdb$identity_type AS identity_type,
+                g.rdb$initial_value AS identity_start,
+                g.rdb$generator_increment AS identity_increment
+            FROM rdb$relation_fields r
+                 JOIN rdb$fields f
+                   ON f.rdb$field_name=r.rdb$field_source
+                 JOIN rdb$types t
+                   ON t.rdb$type=f.rdb$field_type 
+                  AND t.rdb$field_name='RDB$FIELD_TYPE'
+                 LEFT JOIN rdb$character_sets cs
+                        ON cs.rdb$character_set_id=f.rdb$character_set_id
+                 LEFT JOIN rdb$generators g
+                        ON g.rdb$generator_name = r.rdb$generator_name
+            WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
+            ORDER BY r.rdb$field_position
+        """
+
+        if is_fb25: 
+            # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
+            tblqry = """
+                SELECT TRIM(r.rdb$field_name) AS fname,
                     r.rdb$null_flag AS null_flag,
                     t.rdb$type_name AS ftype,
                     f.rdb$field_sub_type AS stype,
@@ -1401,46 +1431,18 @@ class FBDialect(default.DefaultDialect):
                     f.rdb$field_precision AS fprec,
                     f.rdb$field_scale AS fscale,
                     COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
-                    r.rdb$description AS fcomment,
-                    f.rdb$computed_source AS computed_source,
-                    r.rdb$identity_type AS identity_type,
-                    g.rdb$initial_value AS identity_start,
-                    g.rdb$generator_increment AS identity_increment
-        FROM rdb$relation_fields r
-            JOIN rdb$fields f ON r.rdb$field_source=f.rdb$field_name
-            JOIN rdb$types t
-            ON t.rdb$type=f.rdb$field_type AND
-                    t.rdb$field_name='RDB$FIELD_TYPE'
-            LEFT JOIN rdb$character_sets cs ON
-                    f.rdb$character_set_id=cs.rdb$character_set_id
-            LEFT JOIN rdb$generators g ON
-                    g.rdb$generator_name = r.rdb$generator_name
-        WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
-        ORDER BY r.rdb$field_position
-        """
-
-        if is_fb25: 
-            # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
-            tblqry = """
-            SELECT TRIM(r.rdb$field_name) AS fname,
-                        r.rdb$null_flag AS null_flag,
-                        t.rdb$type_name AS ftype,
-                        f.rdb$field_sub_type AS stype,
-                        f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
-                        f.rdb$field_precision AS fprec,
-                        f.rdb$field_scale AS fscale,
-                        COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
-                        r.rdb$description AS fcomment,
-                        f.rdb$computed_source AS computed_source
-            FROM rdb$relation_fields r
-                JOIN rdb$fields f ON r.rdb$field_source=f.rdb$field_name
-                JOIN rdb$types t
-                ON t.rdb$type=f.rdb$field_type AND
-                        t.rdb$field_name='RDB$FIELD_TYPE'
-                LEFT JOIN rdb$character_sets cs ON
-                        f.rdb$character_set_id=cs.rdb$character_set_id
-            WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
-            ORDER BY r.rdb$field_position
+                    TRIM(r.rdb$description) AS fcomment,
+                    f.rdb$computed_source AS computed_source
+                FROM rdb$relation_fields r
+                     JOIN rdb$fields f 
+                       ON f.rdb$field_name=r.rdb$field_source
+                     JOIN rdb$types t
+                       ON t.rdb$type=f.rdb$field_type
+                      AND t.rdb$field_name='RDB$FIELD_TYPE'
+                      LEFT JOIN rdb$character_sets cs ON
+                                cs.rdb$character_set_id=f.rdb$character_set_id
+                WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
+                ORDER BY r.rdb$field_position
             """ 
 
         # get the PK, used to determine the eventual associated sequence
@@ -1531,11 +1533,13 @@ class FBDialect(default.DefaultDialect):
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
         # Query to extract the PK/FK constrained fields of the given table
         keyqry = """
-        SELECT TRIM(se.rdb$field_name) AS fname
-        FROM rdb$relation_constraints rc
-             JOIN rdb$index_segments se ON rc.rdb$index_name=se.rdb$index_name
-        WHERE rc.rdb$constraint_type=? AND rc.rdb$relation_name=?
-        ORDER BY se.rdb$field_position
+            SELECT TRIM(se.rdb$field_name) AS fname
+            FROM rdb$relation_constraints rc
+                 JOIN rdb$index_segments se
+                   ON se.rdb$index_name=rc.rdb$index_name
+            WHERE rc.rdb$constraint_type=? 
+              AND rc.rdb$relation_name=?
+            ORDER BY se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
         # get primary key fields
@@ -1563,13 +1567,19 @@ class FBDialect(default.DefaultDialect):
                    TRIM(rfc.rdb$update_rule) AS update_rule,
                    TRIM(rfc.rdb$delete_rule) AS delete_rule
             FROM rdb$relation_constraints rc
-                 JOIN rdb$ref_constraints rfc ON rfc.rdb$constraint_name = rc.rdb$constraint_name
-                 JOIN rdb$indices ix1 ON ix1.rdb$index_name=rc.rdb$index_name
-                 JOIN rdb$indices ix2 ON ix2.rdb$index_name=ix1.rdb$foreign_key
-                 JOIN rdb$index_segments cse ON cse.rdb$index_name=ix1.rdb$index_name
-                 JOIN rdb$index_segments se ON se.rdb$index_name=ix2.rdb$index_name
-                                           AND se.rdb$field_position=cse.rdb$field_position
-            WHERE rc.rdb$constraint_type = ? AND rc.rdb$relation_name = ?
+                 JOIN rdb$ref_constraints rfc 
+                   ON rfc.rdb$constraint_name = rc.rdb$constraint_name
+                 JOIN rdb$indices ix1 
+                   ON ix1.rdb$index_name=rc.rdb$index_name
+                 JOIN rdb$indices ix2 
+                   ON ix2.rdb$index_name=ix1.rdb$foreign_key
+                 JOIN rdb$index_segments cse 
+                   ON cse.rdb$index_name=ix1.rdb$index_name
+                 JOIN rdb$index_segments se 
+                   ON se.rdb$index_name=ix2.rdb$index_name
+                  AND se.rdb$field_position=cse.rdb$field_position
+            WHERE rc.rdb$constraint_type = ? 
+              AND rc.rdb$relation_name = ?
             ORDER BY rc.rdb$constraint_name, se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
@@ -1613,19 +1623,19 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
         idxqry = """
-        SELECT TRIM(ix.rdb$index_name) AS index_name,
-               ix.rdb$unique_flag AS unique_flag,
-               TRIM(ic.rdb$field_name) AS field_name,
-               TRIM(ix.rdb$expression_source) expression_source
-        FROM rdb$indices ix
-             JOIN rdb$index_segments ic
-                  ON ix.rdb$index_name=ic.rdb$index_name
-             LEFT OUTER JOIN rdb$relation_constraints
-                  ON rdb$relation_constraints.rdb$index_name =
-                        ic.rdb$index_name
-        WHERE ix.rdb$relation_name=? AND ix.rdb$foreign_key IS NULL
-          AND rdb$relation_constraints.rdb$constraint_type IS NULL
-        ORDER BY index_name, ic.rdb$field_position
+            SELECT TRIM(ix.rdb$index_name) AS index_name,
+                   ix.rdb$unique_flag AS unique_flag,
+                   TRIM(ic.rdb$field_name) AS field_name,
+                   TRIM(ix.rdb$expression_source) expression_source
+            FROM rdb$indices ix
+                JOIN rdb$index_segments ic
+                  ON ic.rdb$index_name=ix.rdb$index_name
+                LEFT OUTER JOIN rdb$relation_constraints rc
+                             ON rc.rdb$index_name = ic.rdb$index_name
+            WHERE ix.rdb$relation_name=?
+              AND ix.rdb$foreign_key IS NULL
+              AND rc.rdb$constraint_type IS NULL
+            ORDER BY ix.rdb$index_name, ic.rdb$field_position
         """
         c = connection.exec_driver_sql(
             idxqry, (self.denormalize_name(table_name),)
@@ -1660,22 +1670,17 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
         ucqry = """
-            SELECT
-                TRIM(c.rdb$constraint_name) AS cname,
-                TRIM(s.rdb$field_name) AS column_name
-            FROM
-                rdb$index_segments s
-                JOIN rdb$relation_constraints c
-                    ON (c.rdb$index_name = s.rdb$index_name)
-                JOIN rdb$relations r
-                    ON (r.rdb$relation_name = c.rdb$relation_name AND
-                        r.rdb$system_flag = 0)
-            WHERE
-                c.rdb$constraint_type = ? AND
-                r.rdb$relation_name = ?
-            ORDER BY 
-                c.rdb$constraint_name,
-                s.rdb$field_position
+            SELECT TRIM(rc.rdb$constraint_name) AS cname,
+                   TRIM(se.rdb$field_name) AS column_name
+            FROM rdb$index_segments se
+                 JOIN rdb$relation_constraints rc
+                   ON rc.rdb$index_name = se.rdb$index_name
+                 JOIN rdb$relations r
+                   ON r.rdb$relation_name = rc.rdb$relation_name
+                  AND r.rdb$system_flag = 0
+            WHERE rc.rdb$constraint_type = ? AND
+                  r.rdb$relation_name = ?
+            ORDER BY rc.rdb$constraint_name, se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
 
@@ -1708,7 +1713,7 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_table_comment(self, connection, table_name, schema=None, **kw):
         tcqry = """
-            SELECT rdb$description AS comment
+            SELECT TRIM(rdb$description) AS comment
             FROM rdb$relations
             WHERE rdb$relation_name = ?
         """
@@ -1730,20 +1735,17 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_check_constraints(self, connection, table_name, schema=None, **kw):
         ccqry = """
-            SELECT
-                TRIM(rc.rdb$constraint_name) AS cname,
-                TRIM(SUBSTRING(tr.rdb$trigger_source FROM 8 FOR CHAR_LENGTH(tr.rdb$trigger_source) - 8)) AS sqltext
-            FROM
-                rdb$relation_constraints rc
-                JOIN rdb$check_constraints ck
-                    ON (ck.rdb$constraint_name = rc.rdb$constraint_name)
-                JOIN rdb$triggers tr
-                    ON (tr.rdb$trigger_name = ck.rdb$trigger_name AND
-                        tr.rdb$trigger_type = 1 /* BEFORE UPDATE */)
-            WHERE
-                rc.rdb$constraint_type = ? AND
-                rc.rdb$relation_name = ?
-            ORDER BY 1, 2
+            SELECT TRIM(rc.rdb$constraint_name) AS cname,
+                   TRIM(SUBSTRING(tr.rdb$trigger_source FROM 8 FOR CHAR_LENGTH(tr.rdb$trigger_source) - 8)) AS sqltext
+            FROM rdb$relation_constraints rc
+                 JOIN rdb$check_constraints ck
+                   ON ck.rdb$constraint_name = rc.rdb$constraint_name
+                 JOIN rdb$triggers tr
+                   ON tr.rdb$trigger_name = ck.rdb$trigger_name AND
+                      tr.rdb$trigger_type = 1 /* BEFORE UPDATE */
+            WHERE rc.rdb$constraint_type = ? AND
+                  rc.rdb$relation_name = ?
+            ORDER BY rc.rdb$constraint_name
         """
         tablename = self.denormalize_name(table_name)
 
