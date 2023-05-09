@@ -913,33 +913,6 @@ ischema_names = {
 }
 
 
-@unique
-class FBRelationType(IntEnum):
-    """
-    Firebird RDB$RELATION_TYPE values.
-    
-    Reference: https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref-appx04-relations
-    """
-
-    TABLE = 0
-    "System or user-defined table"
-    
-    VIEW = 1
-    "View"
-
-    EXTERNAL_TABLE = 2
-    "External table"
-
-    MONITORING_TABLE = 3
-    "Monitoring table"
-
-    TEMPORARY_TABLE_PRESERVE = 4
-    "Connection-level GTT (PRESERVE ROWS)"
-
-    TEMPORARY_TABLE_DELETE = 5
-    "Transaction-level GTT (DELETE ROWS)"
-
-
 class FBCompiler(sql.compiler.SQLCompiler):
     ansi_bind_rules = True
 
@@ -1302,7 +1275,7 @@ class FBDialect(default.DefaultDialect):
             self.preparer.reserved_words = RESERVED_WORDS_25
 
     @reflection.cache
-    def has_table(self, connection, table_name, schema=None, relation_type=FBRelationType.TABLE, **kw):
+    def has_table(self, connection, table_name, schema=None, **kw):
         # Can't have a table whose name is too long.
         if len(table_name) > self.max_identifier_length:
             return False
@@ -1311,12 +1284,11 @@ class FBDialect(default.DefaultDialect):
             SELECT 1 AS has_table
             FROM rdb$relations
             WHERE rdb$relation_name = ?
-                  AND rdb$relation_type = ?
         """
 
         c = connection.exec_driver_sql(
             tblqry, 
-            (self.denormalize_name(table_name), relation_type)
+            (self.denormalize_name(table_name), )
         )
         return c.first() is not None
 
@@ -1340,8 +1312,9 @@ class FBDialect(default.DefaultDialect):
             SELECT TRIM(rdb$relation_name) AS relation_name
             FROM rdb$relations
             WHERE rdb$view_blr IS NULL
-                AND (rdb$system_flag IS NULL OR rdb$system_flag = 0)
-                AND rdb$relation_type = 0;
+                  AND (rdb$system_flag IS NULL OR rdb$system_flag = 0)
+                  AND rdb$relation_type = 0
+            ORDER BY rdb$relation_name
         """
 
         return [
@@ -1356,7 +1329,8 @@ class FBDialect(default.DefaultDialect):
             FROM rdb$relations
             WHERE rdb$view_blr IS NULL
                   AND (rdb$system_flag IS NULL OR rdb$system_flag = 0)
-                  AND rdb$relation_type IN (4, 5);
+                  AND rdb$relation_type IN (4, 5)
+            ORDER BY rdb$relation_name
         """
         return [
             self.normalize_name(row.relation_name)
@@ -1366,27 +1340,29 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
         # see http://www.firebirdfaq.org/faq174/
-        s = """
-        select TRIM(rdb$relation_name) AS relation_name
-        from rdb$relations
-        where rdb$view_blr is not null
-        and (rdb$system_flag is null or rdb$system_flag = 0);
+        viewqry = """
+            SELECT TRIM(rdb$relation_name) AS relation_name
+            FROM rdb$relations
+            WHERE rdb$view_blr IS NOT NULL
+                  AND (rdb$system_flag is null or rdb$system_flag = 0)
+            ORDER BY rdb$relation_name
         """
         return [
             self.normalize_name(row.relation_name)
-            for row in connection.exec_driver_sql(s)
+            for row in connection.exec_driver_sql(viewqry)
         ]
 
     @reflection.cache
     def get_sequence_names(self, connection, schema=None, **kw):
-        s = """
-        select TRIM(rdb$generator_name) AS generator_name
-        from rdb$generators
-        where (rdb$system_flag is null or rdb$system_flag = 0);
+        seqqry = """
+            SELECT TRIM(rdb$generator_name) AS generator_name
+            FROM rdb$generators
+            WHERE (rdb$system_flag IS NULL OR rdb$system_flag = 0)
         """
+        # Do not need ORDER BY
         return [
             self.normalize_name(row.generator_name)
-            for row in connection.exec_driver_sql(s)
+            for row in connection.exec_driver_sql(seqqry)
         ]
 
     @reflection.cache
@@ -1395,16 +1371,17 @@ class FBDialect(default.DefaultDialect):
             SELECT rdb$view_source AS view_source
             FROM rdb$relations
             WHERE rdb$relation_name = ?
-                AND rdb$relation_type = ?
+              AND rdb$relation_type = 1 /* VIEW */
         """
         rp = connection.exec_driver_sql(
-            qry, (self.denormalize_name(view_name), FBRelationType.VIEW)
+            qry, 
+			(self.denormalize_name(view_name), )
         )
         row = rp.first()
         if row:
             return row.view_source
 
-        if not self.has_table(connection, view_name, FBRelationType.VIEW):
+        if not self.has_table(connection, view_name):
             raise exc.NoSuchTableError(view_name)
 
         return None
