@@ -8,6 +8,7 @@ from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
 from sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
 from sqlalchemy.testing.suite import NumericTest as _NumericTest
 from sqlalchemy.testing.suite import RowCountTest as _RowCountTest
+from sqlalchemy.testing.suite import StringTest as _StringTest
 
 from sqlalchemy.testing.suite import DateTimeTZTest as _DateTimeTZTest
 from sqlalchemy.testing.suite import TimeTZTest as _TimeTZTest
@@ -73,6 +74,16 @@ class RowCountTest(_RowCountTest):
         "This test hangs in Firebird 4.0 with fdb",
     )
     def test_update_rowcount2(self):
+        super()
+
+
+class StringTest(_StringTest):
+    @testing.fails(
+        "Firebird does not accept a LIKE 'A%C%Z' in a VARCHAR(2) column",
+    )
+    def test_dont_truncate_rightside(
+        self, metadata, connection, expr, expected
+    ):
         super()
 
 
