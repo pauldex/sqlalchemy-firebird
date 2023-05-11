@@ -75,7 +75,6 @@ if ($RebuildDbOnly) {
 #
 
 $db = "$($driver)_$($engine)"
-$host.ui.RawUI.WindowTitle = $db
 
 $extraArgs = ""
 if ($All) {
@@ -83,9 +82,20 @@ if ($All) {
     $extraArgs = "--log-info="
 }
 
-# Run "not hanging" tests
-& pytest $launchArgs --db $db -m "not hanging" $extraArgs
+
+
+# Run "not hanging" tests first
+$testOutput = $null
+$host.ui.RawUI.WindowTitle = "$($db): Running 1st..."
+& pytest $launchArgs --db $db -m "not hanging" $extraArgs | Tee-Object -Variable testOutput
+$summary1st = $testOutput[-1].replace('=', '')
+$host.ui.RawUI.WindowTitle = "$($db): $summary1st"
+
 if ($?) {
-    # All tests passed. Run "hanging" tests
-    & pytest $launchArgs --db $db -m "hanging" $extraArgs
+    # Tests passed. Run "hanging" tests.
+    $testOutput = $null
+    $host.ui.RawUI.WindowTitle = "$($db): $summary1st / Running 2nd..."
+    & pytest $launchArgs --db $db -m "hanging" $extraArgs | Tee-Object -Variable testOutput
+    $summary2nd = $testOutput[-1].replace('=', '')
+    $host.ui.RawUI.WindowTitle = "$($db): $summary1st / $summary2nd"
 }
