@@ -1,8 +1,12 @@
 import pytest
+from sqlalchemy import Index
 
 from sqlalchemy.testing.suite import *  # noqa: F401, F403
 
 from sqlalchemy.testing.suite import CTETest as _CTETest
+from sqlalchemy.testing.suite import (
+    ComponentReflectionTestExtra as _ComponentReflectionTestExtra,
+)
 from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
 from sqlalchemy.testing.suite import (
     DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest,
@@ -24,6 +28,88 @@ from sqlalchemy.testing.suite import (
 )
 class CTETest(_CTETest):
     pass
+
+
+class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
+    def test_reflect_expression_based_indexes(self, metadata, connection):
+        # Clone of super().test_reflect_expression_based_indexes adapted for Firebird.
+        t = Table(
+            "t",
+            metadata,
+            Column("x", String(30)),
+            Column("y", String(30)),
+            Column("z", String(30)),
+        )
+
+        Index("t_idx", func.lower(t.c.x), t.c.z, func.lower(t.c.y))
+        # Maximum allowed for database page size = 8K
+        long_str = "long string " * 42
+        Index("t_idx_long", func.coalesce(t.c.x, long_str))
+        Index("t_idx_2", t.c.x)
+
+        metadata.create_all(connection)
+
+        insp = inspect(connection)
+
+        expected = [
+            {
+                "name": "t_idx_2",
+                "column_names": ["x"],
+                "unique": False,
+                "dialect_options": {},
+            }
+        ]
+
+        def completeIndex(entry):
+            if testing.requires.index_reflects_included_columns.enabled:
+                entry["include_columns"] = []
+                entry["dialect_options"] = {
+                    f"{connection.engine.name}_include": []
+                }
+            else:
+                entry.setdefault("dialect_options", {})
+
+        completeIndex(expected[0])
+
+        class lower_index_str(str):
+            def __eq__(self, other):
+                # test that lower and x or y are in the string
+                return "lower" in other and ("x" in other or "y" in other)
+
+        class coalesce_index_str(str):
+            def __eq__(self, other):
+                # test that coalesce and the string is in other
+                return "coalesce" in other.lower() and long_str in other
+
+        expr_index = {
+            "name": "t_idx",
+            "column_names": [None, "z", None],
+            "expressions": [
+                lower_index_str("lower(x)"),
+                "z",
+                lower_index_str("lower(y)"),
+            ],
+            "unique": False,
+        }
+        completeIndex(expr_index)
+        expected.insert(0, expr_index)
+
+        expr_index_long = {
+            "name": "t_idx_long",
+            "column_names": [None],
+            "expressions": [coalesce_index_str(f"coalesce(x, '{long_str}')")],
+            "unique": False,
+        }
+        completeIndex(expr_index_long)
+        expected.append(expr_index_long)
+
+        eq_(insp.get_indexes("t"), expected)
+        m2 = MetaData()
+        t2 = Table("t", m2, autoload_with=connection)
+
+        self.compare_table_index_with_expected(
+            t2, expected, connection.engine.name
+        )
 
 
 class CompoundSelectTest(_CompoundSelectTest):
@@ -102,7 +188,7 @@ class InsertBehaviorTest(_InsertBehaviorTest):
 
     @testing.skip_if(
         lambda config: config.db.dialect.server_version_info < (3,),
-            "Only supported in Firebird 3.0+.",
+        "Only supported in Firebird 3.0+.",
     )
     def test_insert_from_select_autoinc(self, connection):
         super().test_insert_from_select_autoinc(connection)

@@ -20,6 +20,10 @@ HAS_DDL_PENDING = False
 
 @event.listens_for(Engine, "before_execute")
 def receive_before_execute(connection, statement, *arg):
+    #
+    # Important: Statements executed with connection.exec_driver_sql() don't pass through here.
+    #            Use connection.execute(text()) instead.
+    # 
     global HAS_DDL_PENDING
 
     if isinstance(statement, (CreateTable, DropTable, CreateIndex, DropIndex)):

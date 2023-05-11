@@ -3,6 +3,7 @@ from packaging import version
 from sqlalchemy import exc
 from sqlalchemy import schema as sa_schema
 from sqlalchemy import sql
+from sqlalchemy import text
 from sqlalchemy import types as sqltypes
 from sqlalchemy import util
 from sqlalchemy import __version__ as SQLALCHEMY_VERSION
@@ -912,6 +913,7 @@ ischema_names = {
     "BLOB": BLOB,
 }
 
+EXPRESSION_SEPARATOR = "||"
 
 class FBCompiler(sql.compiler.SQLCompiler):
     ansi_bind_rules = True
@@ -1098,7 +1100,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
             )
         else:
             # INDEX on expression
-            text += "COMPUTED BY (%s)" % " || ".join(
+            text += "COMPUTED BY (%s)" % EXPRESSION_SEPARATOR.join(
                     self.sql_compiler.process(expr, include_table=False, literal_binds=True)
                     for expr in index.expressions
                 )
@@ -1314,11 +1316,8 @@ class FBDialect(default.DefaultDialect):
             FROM rdb$relations
             WHERE rdb$relation_name = ?
         """
-
-        c = connection.exec_driver_sql(
-            tblqry, 
-            (self.denormalize_name(table_name), )
-        )
+        tablename = self.denormalize_name(table_name)
+        c = connection.exec_driver_sql(tblqry, (tablename, ))
         return c.first() is not None
 
     @reflection.cache
@@ -1661,18 +1660,20 @@ class FBDialect(default.DefaultDialect):
                    TRIM(ic.rdb$field_name) AS field_name,
                    TRIM(ix.rdb$expression_source) expression_source
             FROM rdb$indices ix
-                JOIN rdb$index_segments ic
+                LEFT OUTER JOIN rdb$index_segments ic
                   ON ic.rdb$index_name=ix.rdb$index_name
                 LEFT OUTER JOIN rdb$relation_constraints rc
                              ON rc.rdb$index_name = ic.rdb$index_name
-            WHERE ix.rdb$relation_name=?
+            WHERE ix.rdb$relation_name = :relation_name
               AND ix.rdb$foreign_key IS NULL
               AND rc.rdb$constraint_type IS NULL
             ORDER BY ix.rdb$index_name, ic.rdb$field_position
         """
-        c = connection.exec_driver_sql(
-            idxqry, (self.denormalize_name(table_name),)
-        )
+        tablename = self.denormalize_name(table_name)
+
+        # Do not use connection.exec_driver_sql() here. 
+        #    During tests we need to commit CREATE INDEX before this query. See provision.py listener.
+        c = connection.execute(text(idxqry), { "relation_name": tablename })
 
         indexes = util.defaultdict(dict)
         for row in c:
@@ -1680,18 +1681,38 @@ class FBDialect(default.DefaultDialect):
             if "name" not in indexrec:
                 indexrec["name"] = self.normalize_name(row.index_name)
                 indexrec["column_names"] = []
+                indexrec["dialect_options"] = {}
                 indexrec["unique"] = bool(row.unique_flag)
                 if row.expression_source is not None:
-                    # TODO: Review this
-                    indexrec["expressions"] = row.expression_source.split(" || ")
+                    expr = row.expression_source[1:-1]  # Remove outermost parenthesis added by Firebird
+                    indexrec["expressions"] = expr.split(EXPRESSION_SEPARATOR)
 
             indexrec["column_names"].append(
                 self.normalize_name(row.field_name)
             )
 
+        def _get_column_set(tablename):
+            colqry = """
+                SELECT TRIM(r.rdb$field_name) AS fname
+                FROM rdb$relation_fields r
+                WHERE r.rdb$relation_name=?
+            """
+            return {self.normalize_name(row.fname) 
+                    for row in connection.exec_driver_sql(colqry, (tablename,))}
+
+        def _adjust_column_names_for_expressions(result, tablename):
+            # Identify which expression elements are columns
+            colset = _get_column_set(tablename)
+            for i in result:
+                expr = i.get("expressions")
+                if expr is not None:
+                    i["column_names"] = [x if self.normalize_name(x) in colset else None 
+                                         for x in expr]
+            return result
+
         result = list(indexes.values())
         if result:
-            return result
+            return _adjust_column_names_for_expressions(result, tablename)
         
         # TODO: should not raise when called from get_multi_*
 
