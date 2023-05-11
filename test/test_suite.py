@@ -1,4 +1,7 @@
+import operator
 import pytest
+
+import sqlalchemy as sa
 
 from packaging import version
 from sqlalchemy import __version__ as SQLALCHEMY_VERSION
@@ -7,6 +10,9 @@ from sqlalchemy import Index
 from sqlalchemy.testing.suite import *  # noqa: F401, F403
 
 from sqlalchemy.testing.suite import CTETest as _CTETest
+from sqlalchemy.testing.suite import (
+    ComponentReflectionTest as _ComponentReflectionTest,
+)
 from sqlalchemy.testing.suite import (
     ComponentReflectionTestExtra as _ComponentReflectionTestExtra,
 )
@@ -25,12 +31,62 @@ from sqlalchemy.testing.suite import (
     SimpleUpdateDeleteTest as _SimpleUpdateDeleteTest,
 )
 
+from firebird.driver.types import get_timezone
 
 @pytest.mark.skip(
     reason="These tests fails in Firebird because a DELETE FROM <table> with self-referencing FK raises integrity errors."
 )
 class CTETest(_CTETest):
     pass
+
+
+class ComponentReflectionTest(_ComponentReflectionTest):
+    # @testing.combinations(
+    #     (True, testing.requires.schemas), (False,), argnames="use_schema"
+    # )
+    def test_get_unique_constraints(self, metadata, connection):
+        # Clone of super().test_get_unique_constraints() adapted for Firebird.
+
+        # if use_schema:
+        #     schema = config.test_schema
+        # else:
+        schema = None
+        uniques = sorted(
+            [
+                {"name": "unique_a", "column_names": ["a"]},
+                # Firebird won't allow two unique index with same set of columns.
+                {"name": "unique_a_b_c", "column_names": ["a", "b", "c"]},
+                {"name": "unique_c_a", "column_names": ["c", "a"]},
+                {"name": "unique_asc_key", "column_names": ["asc", "key"]},
+                {"name": "i.have.dots", "column_names": ["b"]},
+                {"name": "i have spaces", "column_names": ["c"]},
+            ],
+            key=operator.itemgetter("name"),
+        )
+        table = Table(
+            "testtbl",
+            metadata,
+            Column("a", sa.String(20)),
+            Column("b", sa.String(30)),
+            Column("c", sa.Integer),
+            # reserved identifiers
+            Column("asc", sa.String(30)),
+            Column("key", sa.String(30)),
+            schema=schema,
+        )
+        for uc in uniques:
+            table.append_constraint(
+                sa.UniqueConstraint(*uc["column_names"], name=uc["name"])
+            )
+        table.create(connection)
+
+        inspector = inspect(connection)
+        reflected = sorted(
+            inspector.get_unique_constraints("testtbl", schema=schema),
+            key=operator.itemgetter("name"),
+        )
+
+        eq_(uniques, reflected)
 
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
@@ -68,7 +124,7 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
                     "column_names": ["x"],
                     "unique": False,
                     "dialect_options": {},
-                }
+                },
             ]
 
             eq_(insp.get_indexes("t"), expected)
@@ -179,34 +235,30 @@ class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
 
 # Firebird-driver needs special time zone handling.
 #   https://github.com/FirebirdSQL/python3-driver/issues/19#issuecomment-1523045743
+
+
+
+
 class DateTimeTZTest(_DateTimeTZTest):
-    def setup_method(self, method):
-        super().setup_method(method)
-
-        from firebird.driver.types import get_timezone
-
-        self.data = datetime.datetime(
-            2012, 10, 15, 12, 57, 18, tzinfo=get_timezone("UTC")
-        )
+    data = datetime.datetime(
+        2012, 10, 15, 12, 57, 18, tzinfo=get_timezone("UTC")
+    )
 
 
 class TimeTZTest(_TimeTZTest):
-    def setup_method(self, method):
-        super().setup_method(method)
-
-        from firebird.driver.types import get_timezone
-
-        self.data = datetime.time(12, 57, 18, tzinfo=get_timezone("UTC"))
+    data = datetime.time(12, 57, 18, tzinfo=get_timezone("UTC"))
 
 
 class StringTest(_StringTest):
-    @testing.fails(
-        "Firebird does not accept a LIKE 'A%C%Z' in a VARCHAR(2) column",
+    @pytest.mark.skip(
+        reason="Firebird does not accept a LIKE 'A%C%Z' in a VARCHAR(2) column"
     )
     def test_dont_truncate_rightside(
         self, metadata, connection, expr, expected
     ):
-        pass
+        super().test_dont_truncate_rightside(
+            self, metadata, connection, expr, expected
+        )
 
 
 #
