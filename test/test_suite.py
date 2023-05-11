@@ -100,6 +100,13 @@ class InsertBehaviorTest(_InsertBehaviorTest):
     def test_insert_from_select_with_defaults(self, connection):
         super().test_insert_from_select_with_defaults(connection)
 
+    @testing.skip_if(
+        lambda config: config.db.dialect.server_version_info < (3,),
+            "Only supported in Firebird 3.0+.",
+    )
+    def test_insert_from_select_autoinc(self, connection):
+        super().test_insert_from_select_autoinc(connection)
+
 
 class NumericTest(_NumericTest):
     @pytest.mark.hanging(
