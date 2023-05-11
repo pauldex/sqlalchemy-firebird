@@ -3,6 +3,17 @@ from sqlalchemy.testing import exclusions
 
 
 class Requirements(SuiteRequirements):
+    def firebird_3_or_higher(self):
+        return exclusions.skip_if(
+            lambda config: config.db.dialect.server_version_info < (3,),
+            "Only supported in Firebird 3.0+.",
+        )
+
+    def firebird_4_or_higher(self):
+        return exclusions.skip_if(
+            lambda config: config.db.dialect.server_version_info < (4,),
+            "Only supported in Firebird 4.0+.",
+        )
 
     #
     # SuiteRequirements
@@ -54,11 +65,15 @@ class Requirements(SuiteRequirements):
     @property
     def ctes(self):
         return exclusions.open()
-    
+
     # 318
     @property
     def autoincrement_insert(self):
         return exclusions.closed()
+
+    @property
+    def empty_inserts(self):
+        return self.firebird_4_or_higher()
 
     # 488
     @property
@@ -90,8 +105,7 @@ class Requirements(SuiteRequirements):
     # 659
     @property
     def comment_reflection_full_unicode(self):
-        # Only working in Firebird 4.
-        return exclusions.skip_if("firebird<4")
+        return self.firebird_4_or_higher()
 
     # 699
     @property
@@ -183,13 +197,13 @@ class Requirements(SuiteRequirements):
     @property
     def datetime_timezone(self):
         # Time zone support added in Firebird 4.
-        return exclusions.skip_if("firebird<4")
-    
+        return self.firebird_4_or_higher()
+
     # 862
     @property
     def date_implicit_bound(self):
         return exclusions.closed()
-    
+
     # 871
     @property
     def time_implicit_bound(self):
@@ -216,12 +230,12 @@ class Requirements(SuiteRequirements):
     @property
     def precision_numerics_enotation_small(self):
         return exclusions.open()
-    
+
     # 1112
     @property
     def precision_numerics_enotation_large(self):
         # Increased maximum precision of NUMERIC and DECIMAL to 38 digits in Firebird 4.
-        return exclusions.skip_if("firebird<4")
+        return self.firebird_4_or_higher()
 
     # 1199
     @property
@@ -259,7 +273,7 @@ class Requirements(SuiteRequirements):
     @property
     def identity_columns(self):
         # Identity Column Type added in Firebird 3.
-        return exclusions.skip_if("firebird<3")
+        return self.firebird_3_or_higher()
 
     # 1642
     @property
