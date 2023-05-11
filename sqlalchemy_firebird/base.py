@@ -971,6 +971,13 @@ class FBCompiler(sql.compiler.SQLCompiler):
         else:
             return "SUBSTRING(%s FROM %s)" % (s, start)
 
+    def visit_truediv_binary(self, binary, operator, **kw):
+        return (
+            self.process(binary.left, **kw)
+            + " / "
+            + "(%s + 0.0)" % self.process(binary.right, **kw)
+        )
+
     def visit_mod_binary(self, binary, operator, **kw):
         return "mod(%s, %s)" % (
             self.process(binary.left, **kw),
