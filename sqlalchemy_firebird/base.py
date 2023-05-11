@@ -1122,7 +1122,11 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
     def get_identity_options(self, identity_options):
         text = []
         if identity_options.start is not None:
-            text.append("START WITH %d" % identity_options.start)
+            start = identity_options.start
+            if self.dialect.server_version_info < (4,):
+                # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
+                start -= identity_options.increment if identity_options.increment is not None else 1
+            text.append("START WITH %d" % start)
         if identity_options.increment is not None:
             text.append("INCREMENT BY %d" % identity_options.increment)
         return " ".join(text)
