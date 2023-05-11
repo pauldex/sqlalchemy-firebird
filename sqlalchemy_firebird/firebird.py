@@ -10,7 +10,6 @@
 """  # noqa
 
 from math import modf
-
 from sqlalchemy import util
 from sqlalchemy import types as sqltypes
 from .base import FBDialect
@@ -52,6 +51,11 @@ class FBDialect_firebird(FBDialect):
             sqltypes.LargeBinary: LargeBinary_firebird,
         },
     )
+
+    @classmethod
+    def dbapi(cls):
+        # For SQLAlchemy 1.4 compatibility only. Deprecated in 2.0.
+        return firebird.driver
 
     @classmethod
     def import_dbapi(cls):
@@ -112,7 +116,9 @@ class FBDialect_firebird(FBDialect):
             dbapi_connection.commit()
 
     def _get_server_version_info(self, connection):
-        dbapi_connection = connection.connection.dbapi_connection
+        dbapi_connection = connection.connection.dbapi_connection if self.using_sqlalchemy2 \
+                           else connection.connection
+
         minor, major = modf(dbapi_connection.info.engine_version)
         return (int(major), int(minor * 10))
 

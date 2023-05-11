@@ -1,4 +1,5 @@
-from sqlalchemy import Engine, event
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from sqlalchemy.schema import CreateTable, DropTable, CreateIndex, DropIndex
 from sqlalchemy.testing.provision import temp_table_keyword_args
 

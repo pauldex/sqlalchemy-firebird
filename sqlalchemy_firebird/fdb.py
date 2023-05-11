@@ -23,6 +23,11 @@ class FBDialect_fdb(FBDialect):
     supports_statement_cache = True
 
     @classmethod
+    def dbapi(cls):
+        # For SQLAlchemy 1.4 compatibility only. Deprecated in 2.0.
+        return fdb
+
+    @classmethod
     def import_dbapi(cls):
         return fdb
 
@@ -38,7 +43,8 @@ class FBDialect_fdb(FBDialect):
         return ([], opts)
 
     def _get_server_version_info(self, connection):
-        dbapi_connection = connection.connection.dbapi_connection
+        dbapi_connection = connection.connection.dbapi_connection if self.using_sqlalchemy2 \
+                           else connection.connection
         minor, major = modf(dbapi_connection.engine_version)
         return (int(major), int(minor * 10))
 
