@@ -1,4 +1,7 @@
 import pytest
+
+from packaging import version
+from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy import Index
 
 from sqlalchemy.testing.suite import *  # noqa: F401, F403
@@ -33,6 +36,46 @@ class CTETest(_CTETest):
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
     def test_reflect_expression_based_indexes(self, metadata, connection):
         # Clone of super().test_reflect_expression_based_indexes adapted for Firebird.
+
+        using_sqlalchemy2 = version.parse(SQLALCHEMY_VERSION).major >= 2
+        if not using_sqlalchemy2:
+            # Test from SQLAlchemy 1.4
+            t = Table(
+                "t",
+                metadata,
+                Column("x", String(30)),
+                Column("y", String(30)),
+            )
+
+            Index("t_idx", func.lower(t.c.x), func.lower(t.c.y))
+
+            Index("t_idx_2", t.c.x)
+
+            metadata.create_all(connection)
+
+            insp = inspect(connection)
+
+            expected = [
+                {
+                    "name": "t_idx",
+                    "column_names": [None, None],
+                    "unique": False,
+                    "expressions": ["lower(x)", "lower(y)"],
+                    "dialect_options": {},
+                },
+                {
+                    "name": "t_idx_2",
+                    "column_names": ["x"],
+                    "unique": False,
+                    "dialect_options": {},
+                }
+            ]
+
+            eq_(insp.get_indexes("t"), expected)
+            return
+
+        # Test from SQLAlchemy 2.0
+
         t = Table(
             "t",
             metadata,
@@ -61,13 +104,7 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
         ]
 
         def completeIndex(entry):
-            if testing.requires.index_reflects_included_columns.enabled:
-                entry["include_columns"] = []
-                entry["dialect_options"] = {
-                    f"{connection.engine.name}_include": []
-                }
-            else:
-                entry.setdefault("dialect_options", {})
+            entry.setdefault("dialect_options", {})
 
         completeIndex(expected[0])
 
