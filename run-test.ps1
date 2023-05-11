@@ -1,4 +1,4 @@
-param([string]$Db, [switch]$Full) 
+param([string]$Db, [switch]$Full, [switch]$RebuildDbOnly) 
 
 #
 # Get pytest arguments from launch.json
@@ -50,6 +50,10 @@ Write-Warning "Creating '$engine' database..."
         PAGE_SIZE 8192 DEFAULT CHARACTER SET UTF8;
 "@ | & $isql -quiet | Out-Null
 
+if ($RebuildDbOnly) {
+    return
+}
+
 
 #
 # Run tests
@@ -57,4 +61,9 @@ Write-Warning "Creating '$engine' database..."
 clear
 $db = "$($driver)_$($engine)"
 $host.ui.RawUI.WindowTitle = $db
-& pytest $launchArgs --db $db
+# Run "not hanging" tests
+& pytest $launchArgs --db $db -m "not hanging"
+if ($?) {
+    # All tests passed. Run "hanging"
+    & pytest $launchArgs --db $db -m "hanging"
+}
