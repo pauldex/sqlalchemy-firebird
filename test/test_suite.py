@@ -84,6 +84,15 @@ class RowCountTest(_RowCountTest):
     def test_update_rowcount2(self, connection):
         super().test_update_rowcount2(connection)
 
+    # ToDo: Run this test only on Firebird 5.0+
+
+    # @testing.skip(
+    #     lambda config: config.db.dialect.server_version_info < (5, 0),
+    #     "Multiple rows UPDATE RETURNING are supported only in Firebird 5.0+",
+    # )
+    # def test_update_delete_rowcount_return_defaults(self, connection, implicit_returning, dml, **kw):
+    #     super().test_update_delete_rowcount_return_defaults(connection, implicit_returning, dml, **kw)
+
 
 class SimpleUpdateDeleteTest(_SimpleUpdateDeleteTest):
     @pytest.mark.hanging(
