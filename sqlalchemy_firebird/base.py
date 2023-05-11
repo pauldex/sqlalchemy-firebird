@@ -995,9 +995,9 @@ class FBCompiler(sql.compiler.SQLCompiler):
     def default_from(self):
         return " FROM rdb$database"
     
-    def returning_clause(self, stmt, returning_cols):
+    def returning_clause(self, stmt, returning_cols, **kw):
         if self.dialect.using_sqlalchemy2:
-            return super().returning_clause(stmt, returning_cols)
+            return super().returning_clause(stmt, returning_cols, **kw)
         
         # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
         columns = [
@@ -1518,9 +1518,12 @@ class FBDialect(default.DefaultDialect):
                 "name": name,
                 "type": coltype,
                 "nullable": not bool(row.null_flag),
-                "default": defvalue,
-                "autoincrement": "auto", # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
+                "default": defvalue
             }
+
+            if not self.using_sqlalchemy2:
+                # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
+                col_d["autoincrement"] = "auto"
 
             if orig_colname.lower() == orig_colname:
                 col_d["quote"] = True
