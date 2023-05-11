@@ -3,6 +3,10 @@ import pytest
 from sqlalchemy.testing.suite import *  # noqa: F401, F403
 
 from sqlalchemy.testing.suite import CTETest as _CTETest
+from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
+from sqlalchemy.testing.suite import (
+    DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest,
+)
 from sqlalchemy.testing.suite import DateTimeTZTest as _DateTimeTZTest
 from sqlalchemy.testing.suite import TimeTZTest as _TimeTZTest
 from sqlalchemy.testing.suite import StringTest as _StringTest
@@ -20,6 +24,34 @@ from sqlalchemy.testing.suite import (
 )
 class CTETest(_CTETest):
     pass
+
+
+class CompoundSelectTest(_CompoundSelectTest):
+    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
+    def test_distinct_selectable_in_unions(self):
+        super().test_distinct_selectable_in_unions()
+
+    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
+    def test_limit_offset_aliased_selectable_in_unions(self):
+        super().test_limit_offset_aliased_selectable_in_unions()
+
+    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
+    def test_plain_union(self):
+        super().test_plain_union()
+
+
+class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
+    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
+    def test_distinct_selectable_in_unions(self):
+        super().test_distinct_selectable_in_unions()
+
+    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
+    def test_limit_offset_aliased_selectable_in_unions(self):
+        super().test_limit_offset_aliased_selectable_in_unions()
+
+    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
+    def test_plain_union(self):
+        super().test_plain_union()
 
 
 # Firebird-driver needs special time zone handling.
