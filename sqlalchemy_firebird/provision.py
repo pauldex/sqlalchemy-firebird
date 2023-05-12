@@ -3,8 +3,6 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.schema import CreateTable, DropTable, CreateIndex, DropIndex
 from sqlalchemy.testing.provision import temp_table_keyword_args
 
-import logging
-
 
 @temp_table_keyword_args.for_db("firebird")
 def _firebird_temp_table_keyword_args(cfg, eng):
@@ -15,27 +13,13 @@ def _firebird_temp_table_keyword_args(cfg, eng):
     }
 
 
-HAS_DDL_PENDING = False
-
-
-@event.listens_for(Engine, "before_execute")
-def receive_before_execute(connection, statement, *arg):
+@event.listens_for(Engine, "after_execute")
+def receive_after_execute(connection, statement, *arg):
     #
     # Important: Statements executed with connection.exec_driver_sql() don't pass through here.
     #            Use connection.execute(text()) instead.
-    # 
-    global HAS_DDL_PENDING
-
+    #
     if isinstance(statement, (CreateTable, DropTable, CreateIndex, DropIndex)):
-        HAS_DDL_PENDING = True
-        return
-
-    if HAS_DDL_PENDING:
-        log = logging.getLogger("sqlalchemy.firebird.provision")
-        log.info("Flushing DDL, conn = %s", connection)
-
         # Using Connection protected methods here because the public ones cause errors with TransactionManager
         connection._commit_impl()
         connection._begin_impl(connection._transaction)
-
-        HAS_DDL_PENDING = False
