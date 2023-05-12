@@ -1157,17 +1157,21 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_BLOB(self, type_, **kw):
         return "BLOB SUB_TYPE 0"
 
-    def _render_string_type(self, type_, name):
+    def _render_string_type(self, type_, name, length_override=None):
         text = name
-        if type_.length:
-            text += f"({type_.length})"
+
+        length = length_override if length_override else getattr(type_, "length", None)
+        if length is not None:
+            text += f"({length})"
 
         charset = getattr(type_, "charset", None)
         if charset is not None:
             text += f" CHARACTER SET {charset}"
 
-        if type_.collation:
-            text += f" COLLATE {type_.collation}"
+        collation = getattr(type_, "collation", None)
+        if collation is not None:
+            text += f" COLLATE {collation}"
+            
         return text
 
     def visit_VARCHAR(self, type_, **kw):
@@ -1775,7 +1779,7 @@ class FBDialect(default.DefaultDialect):
         """
         tablename = self.denormalize_name(table_name)
         c = connection.exec_driver_sql(check_constraints_query, (tablename,))
-        
+
         ccs = util.defaultdict(
             lambda: {
                 "name": None,
