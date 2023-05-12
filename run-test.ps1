@@ -76,26 +76,41 @@ if ($RebuildDbOnly) {
 
 $db = "$($driver)_$($engine)"
 
-$extraArgs = ""
+$extraArgs = ''
 if ($All) {
     # When running all tests, reduce log output.
-    $extraArgs = "--log-info="
+    $extraArgs = '--log-info='
 }
+
+# Set console width in chars
+[console]::WindowWidth=240
+
+$transcriptFile = [System.IO.Path]::GetTempFileName()
 
 
 
 # Run "not hanging" tests first
 $testOutput = $null
 $host.ui.RawUI.WindowTitle = "$($db): Running 1st..."
-& pytest $launchArgs --db $db -m "not hanging" $extraArgs | Tee-Object -Variable testOutput
-$summary1st = $testOutput[-1].replace('=', '')
+
+Start-Transcript -Path $transcriptFile | Out-Null
+& pytest $launchArgs --db $db -m "not hanging" $extraArgs
+$pytestExitCode = $LASTEXITCODE
+Stop-Transcript | Out-Null
+$testOutput = Get-Content $transcriptFile
+
+$summary1st = $testOutput[-5].replace('=', '')
 $host.ui.RawUI.WindowTitle = "$($db): $summary1st"
 
-if ($?) {
+if ($pytestExitCode -eq 0) {
     # Tests passed. Run "hanging" tests.
-    $testOutput = $null
     $host.ui.RawUI.WindowTitle = "$($db): $summary1st / Running 2nd..."
-    & pytest $launchArgs --db $db -m "hanging" $extraArgs | Tee-Object -Variable testOutput
-    $summary2nd = $testOutput[-1].replace('=', '')
+    
+    Start-Transcript -Path $transcriptFile | Out-Null
+    & pytest $launchArgs --db $db -m "hanging" $extraArgs
+    Stop-Transcript | Out-Null
+    $testOutput = Get-Content $transcriptFile
+
+    $summary2nd = $testOutput[-5].replace('=', '')
     $host.ui.RawUI.WindowTitle = "$($db): $summary1st / $summary2nd"
 }
