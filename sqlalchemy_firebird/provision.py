@@ -32,7 +32,7 @@ def receive_before_execute(connection, statement, *arg):
 
     if HAS_DDL_PENDING:
         log = logging.getLogger("sqlalchemy.firebird.provision")
-        log.warning("Flushing DDL, conn = %s", str(connection))
+        log.info("Flushing DDL, conn = %s", connection)
 
         # Using Connection protected methods here because the public ones cause errors with TransactionManager
         connection._commit_impl()
