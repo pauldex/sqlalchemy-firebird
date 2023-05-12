@@ -919,7 +919,7 @@ class FBCompiler(sql.compiler.SQLCompiler):
     ansi_bind_rules = True
 
     def visit_empty_set_expr(self, element_types, **kw):
-        return "SELECT 1 FROM RDB$DATABASE WHERE 1!=1"
+        return "SELECT 1 FROM rdb$database WHERE 1!=1"
 
     def visit_sequence(self, sequence, **kw):
         return "GEN_ID(%s, 1)" % self.preparer.format_sequence(sequence)
@@ -981,7 +981,7 @@ class FBCompiler(sql.compiler.SQLCompiler):
         )
 
     def visit_mod_binary(self, binary, operator, **kw):
-        return "mod(%s, %s)" % (
+        return "MOD(%s, %s)" % (
             self.process(binary.left, **kw),
             self.process(binary.right, **kw),
         )
@@ -1076,7 +1076,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         self._verify_index_table(index)
 
         if index.name is None:
-            raise exc.CompileError("CREATE INDEX requires that the index have a name")
+            raise exc.CompileError("CREATE INDEX requires that the index have a name.")
 
         text = "CREATE "
         if index.unique:
@@ -1088,7 +1088,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         )
         
         if index.expressions is None:
-            raise exc.CompileError("CREATE INDEX requires at least one column or expression")
+            raise exc.CompileError("CREATE INDEX requires at least one column or expression.")
 
         first_expression = index.expressions[0] if len(index.expressions) > 0 else index.expressions
         
@@ -1173,7 +1173,7 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_VARCHAR(self, type_, **kw):
         if not type_.length:
             raise exc.CompileError(
-                f"VARCHAR requires a length on dialect {self.dialect.name}"
+                f"VARCHAR requires a length on dialect {self.dialect.name}."
             )
         return super().visit_VARCHAR(type_, **kw)
 
@@ -1215,7 +1215,7 @@ class FBExecutionContext(default.DefaultExecutionContext):
     def fire_sequence(self, seq, type_):
         return self._execute_scalar(
             (
-                "SELECT gen_id(%s, 1) FROM rdb$database"
+                "SELECT GEN_ID(%s, 1) FROM rdb$database"
                 % self.dialect.identifier_preparer.format_sequence(seq)
             ),
             type_,
@@ -1311,98 +1311,97 @@ class FBDialect(default.DefaultDialect):
         if len(table_name) > self.max_identifier_length:
             return False
 
-        tblqry = """
+        has_table_query = """
             SELECT 1 AS has_table
             FROM rdb$relations
             WHERE rdb$relation_name = ?
         """
         tablename = self.denormalize_name(table_name)
-        c = connection.exec_driver_sql(tblqry, (tablename, ))
+        c = connection.exec_driver_sql(has_table_query, (tablename, ))
         return c.first() is not None
 
     @reflection.cache
     def has_sequence(self, connection, sequence_name, schema=None, **kw):
         """Return ``True`` if the given sequence (generator) exists."""
-        seqqry = """
+        has_sequence_query = """
             SELECT 1 AS has_sequence 
             FROM rdb$generators
             WHERE rdb$generator_name = ?
         """
         c = connection.exec_driver_sql(
-            seqqry, 
+            has_sequence_query, 
             (self.denormalize_name(sequence_name),)
         )
         return c.first() is not None
 
     @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
-        tblqry = """
+        tables_query = """
             SELECT TRIM(rdb$relation_name) AS relation_name
             FROM rdb$relations
-            WHERE rdb$view_blr IS NULL
-                  AND (rdb$system_flag IS NULL OR rdb$system_flag = 0)
-                  AND rdb$relation_type = 0
+            WHERE rdb$relation_type IN (0 /* TABLE */)
+              AND COALESCE(rdb$system_flag, 0) = 0
             ORDER BY rdb$relation_name
         """
 
         return [
             self.normalize_name(row.relation_name)
-            for row in connection.exec_driver_sql(tblqry)
+            for row in connection.exec_driver_sql(tables_query)
         ]
 
     @reflection.cache
     def get_temp_table_names(self, connection, schema=None, **kw):
-        tmpqry = """
+        temp_tables_query = """
             SELECT TRIM(rdb$relation_name) AS relation_name
             FROM rdb$relations
-            WHERE rdb$view_blr IS NULL
-                  AND (rdb$system_flag IS NULL OR rdb$system_flag = 0)
-                  AND rdb$relation_type IN (4, 5)
+            WHERE rdb$relation_type IN (4 /* TEMPORARY_TABLE_PRESERVE */, 
+                                        5 /* TEMPORARY_TABLE_DELETE */)
+              AND COALESCE(rdb$system_flag, 0) = 0
             ORDER BY rdb$relation_name
         """
         return [
             self.normalize_name(row.relation_name)
-            for row in connection.exec_driver_sql(tmpqry)
+            for row in connection.exec_driver_sql(temp_tables_query)
         ]
 
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
         # see http://www.firebirdfaq.org/faq174/
-        viewqry = """
+        views_query = """
             SELECT TRIM(rdb$relation_name) AS relation_name
             FROM rdb$relations
-            WHERE rdb$view_blr IS NOT NULL
-                  AND (rdb$system_flag is null or rdb$system_flag = 0)
+            WHERE rdb$relation_type IN (1 /* VIEW */)
+              AND COALESCE(rdb$system_flag, 0) = 0
             ORDER BY rdb$relation_name
         """
         return [
             self.normalize_name(row.relation_name)
-            for row in connection.exec_driver_sql(viewqry)
+            for row in connection.exec_driver_sql(views_query)
         ]
 
     @reflection.cache
     def get_sequence_names(self, connection, schema=None, **kw):
-        seqqry = """
+        sequences_query = """
             SELECT TRIM(rdb$generator_name) AS generator_name
             FROM rdb$generators
-            WHERE (rdb$system_flag IS NULL OR rdb$system_flag = 0)
+            WHERE COALESCE(rdb$system_flag, 0) = 0
         """
         # Do not need ORDER BY
         return [
             self.normalize_name(row.generator_name)
-            for row in connection.exec_driver_sql(seqqry)
+            for row in connection.exec_driver_sql(sequences_query)
         ]
 
     @reflection.cache
     def get_view_definition(self, connection, view_name, schema=None, **kw):
-        qry = """
+        view_query = """
             SELECT rdb$view_source AS view_source
             FROM rdb$relations
-            WHERE rdb$relation_name = ?
-              AND rdb$relation_type = 1 /* VIEW */
+            WHERE rdb$relation_type IN (1 /* VIEW */)
+              AND rdb$relation_name = ?
         """
         c = connection.exec_driver_sql(
-            qry, 
+            view_query, 
 			(self.denormalize_name(view_name), )
         )
         row = c.fetchone()
@@ -1417,68 +1416,69 @@ class FBDialect(default.DefaultDialect):
     ):
         is_fb25 = self.server_version_info < (3,)
         # Query to extract the details of all the fields of the given table
-        tblqry = """
+        columns_query = """
             SELECT TRIM(r.rdb$field_name) AS fname,
-                r.rdb$null_flag AS null_flag,
-                t.rdb$type_name AS ftype,
-                f.rdb$field_sub_type AS stype,
-                f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
-                f.rdb$field_precision AS fprec,
-                f.rdb$field_scale AS fscale,
-                COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
-                TRIM(r.rdb$description) AS fcomment,
-                f.rdb$computed_source AS computed_source,
-                r.rdb$identity_type AS identity_type,
-                g.rdb$initial_value AS identity_start,
-                g.rdb$generator_increment AS identity_increment
+                   r.rdb$null_flag AS null_flag,
+                   t.rdb$type_name AS ftype,
+                   f.rdb$field_sub_type AS stype,
+                   f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
+                   f.rdb$field_precision AS fprec,
+                   f.rdb$field_scale AS fscale,
+                   COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
+                   TRIM(r.rdb$description) AS fcomment,
+                   f.rdb$computed_source AS computed_source,
+                   r.rdb$identity_type AS identity_type,
+                   g.rdb$initial_value AS identity_start,
+                   g.rdb$generator_increment AS identity_increment
             FROM rdb$relation_fields r
                  JOIN rdb$fields f
-                   ON f.rdb$field_name=r.rdb$field_source
+                   ON f.rdb$field_name = r.rdb$field_source
                  JOIN rdb$types t
-                   ON t.rdb$type=f.rdb$field_type 
-                  AND t.rdb$field_name='RDB$FIELD_TYPE'
+                   ON t.rdb$type = f.rdb$field_type 
+                  AND t.rdb$field_name = 'RDB$FIELD_TYPE'
                  LEFT JOIN rdb$character_sets cs
-                        ON cs.rdb$character_set_id=f.rdb$character_set_id
+                        ON cs.rdb$character_set_id = f.rdb$character_set_id
                  LEFT JOIN rdb$generators g
                         ON g.rdb$generator_name = r.rdb$generator_name
-            WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
+            WHERE f.rdb$system_flag = 0 
+              AND r.rdb$relation_name = ?
             ORDER BY r.rdb$field_position
         """
 
         if is_fb25: 
             # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
-            tblqry = """
+            columns_query = """
                 SELECT TRIM(r.rdb$field_name) AS fname,
-                    r.rdb$null_flag AS null_flag,
-                    t.rdb$type_name AS ftype,
-                    f.rdb$field_sub_type AS stype,
-                    f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
-                    f.rdb$field_precision AS fprec,
-                    f.rdb$field_scale AS fscale,
-                    COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
-                    TRIM(r.rdb$description) AS fcomment,
-                    f.rdb$computed_source AS computed_source
+                       r.rdb$null_flag AS null_flag,
+                       t.rdb$type_name AS ftype,
+                       f.rdb$field_sub_type AS stype,
+                       f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
+                       f.rdb$field_precision AS fprec,
+                       f.rdb$field_scale AS fscale,
+                       COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
+                       TRIM(r.rdb$description) AS fcomment,
+                       f.rdb$computed_source AS computed_source
                 FROM rdb$relation_fields r
                      JOIN rdb$fields f 
-                       ON f.rdb$field_name=r.rdb$field_source
+                       ON f.rdb$field_name = r.rdb$field_source
                      JOIN rdb$types t
-                       ON t.rdb$type=f.rdb$field_type
-                      AND t.rdb$field_name='RDB$FIELD_TYPE'
-                      LEFT JOIN rdb$character_sets cs ON
-                                cs.rdb$character_set_id=f.rdb$character_set_id
-                WHERE f.rdb$system_flag=0 AND r.rdb$relation_name=?
+                       ON t.rdb$type = f.rdb$field_type
+                      AND t.rdb$field_name = 'RDB$FIELD_TYPE'
+                      LEFT JOIN rdb$character_sets cs
+                             ON cs.rdb$character_set_id = f.rdb$character_set_id
+                WHERE f.rdb$system_flag = 0
+                  AND r.rdb$relation_name = ?
                 ORDER BY r.rdb$field_position
             """ 
 
         tablename = self.denormalize_name(table_name)
-        # get all of the fields for this table
-        c = [row for row in connection.exec_driver_sql(tblqry, (tablename,))]
+        c = [row for row in connection.exec_driver_sql(columns_query, (tablename,))]
+
         cols = []
         for row in c:
             name = self.normalize_name(row.fname)
-            orig_colname = row.fname
 
-            # get the data type
+            # Extract data type
             colspec = row.ftype.rstrip()
             coltype = self.ischema_names.get(colspec)
             if coltype is None:
@@ -1498,7 +1498,7 @@ class FBDialect(default.DefaultDialect):
             else:
                 coltype = coltype()
 
-            # does it have a default value?
+            # Extract default value
             defvalue = None
             if row.fdefault is not None:
                 # the value comes down as "DEFAULT 'value'": there may be
@@ -1510,9 +1510,7 @@ class FBDialect(default.DefaultDialect):
                     "Unrecognized default value: %s" % defexpr
                 )
                 defvalue = defexpr[8:].strip()
-                if defvalue == "NULL":
-                    # Redundant
-                    defvalue = None
+                defvalue = defvalue if defvalue != "NULL" else None
                    
             col_d = {
                 "name": name,
@@ -1521,10 +1519,7 @@ class FBDialect(default.DefaultDialect):
                 "default": defvalue
             }
 
-            if not self.using_sqlalchemy2:
-                # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
-                col_d["autoincrement"] = "auto"
-
+            orig_colname = row.fname
             if orig_colname.lower() == orig_colname:
                 col_d["quote"] = True
 
@@ -1535,11 +1530,15 @@ class FBDialect(default.DefaultDialect):
                 col_d["comment"] = row.fcomment
 
             if (not is_fb25) and row.identity_type is not None:
-                seq_d = {}
-                seq_d["always"] = row.identity_type == 0
-                seq_d["start"] = row.identity_start
-                seq_d["increment"] = row.identity_increment
-                col_d["identity"] = seq_d
+                col_d["identity"] = {
+                    "always": row.identity_type == 0,
+                    "start": row.identity_start,
+                    "increment": row.identity_increment
+                }
+
+            if not self.using_sqlalchemy2:
+                # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
+                col_d["autoincrement"] = "auto"
 
             cols.append(col_d)
 
@@ -1553,19 +1552,17 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
-        # Query to extract the PK/FK constrained fields of the given table
-        keyqry = """
+        pk_query = """
             SELECT TRIM(se.rdb$field_name) AS fname
             FROM rdb$relation_constraints rc
                  JOIN rdb$index_segments se
-                   ON se.rdb$index_name=rc.rdb$index_name
-            WHERE rc.rdb$constraint_type=? 
-              AND rc.rdb$relation_name=?
+                   ON se.rdb$index_name = rc.rdb$index_name
+            WHERE rc.rdb$constraint_type = 'PRIMARY KEY'
+              AND rc.rdb$relation_name = ?
             ORDER BY se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
-        # get primary key fields
-        c = connection.exec_driver_sql(keyqry, ("PRIMARY KEY", tablename))
+        c = connection.exec_driver_sql(pk_query, (tablename,))
 
         pkfields = [self.normalize_name(r.fname) for r in c.fetchall()]
         if pkfields:
@@ -1574,12 +1571,11 @@ class FBDialect(default.DefaultDialect):
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
 
-        return reflection.ReflectionDefaults.pk_constraint() if self.using_sqlalchemy2 else { "name": None, "constrained_columns": [], }
+        return reflection.ReflectionDefaults.pk_constraint() if self.using_sqlalchemy2 else { "name": None, "constrained_columns": [] }
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
-        # Query to extract the details of each UK/FK of the given table
-        fkqry = """
+        fk_query = """
             SELECT TRIM(rc.rdb$constraint_name) AS cname,
                    TRIM(cse.rdb$field_name) AS fname,
                    TRIM(ix2.rdb$relation_name) AS targetrname,
@@ -1598,13 +1594,13 @@ class FBDialect(default.DefaultDialect):
                  JOIN rdb$index_segments se 
                    ON se.rdb$index_name=ix2.rdb$index_name
                   AND se.rdb$field_position=cse.rdb$field_position
-            WHERE rc.rdb$constraint_type = ? 
+            WHERE rc.rdb$constraint_type = 'FOREIGN KEY'
               AND rc.rdb$relation_name = ?
             ORDER BY rc.rdb$constraint_name, se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
+        c = connection.exec_driver_sql(fk_query, (tablename,))
 
-        c = connection.exec_driver_sql(fkqry, ("FOREIGN KEY", tablename))
         fks = util.defaultdict(
             lambda: {
                 "name": None,
@@ -1640,7 +1636,7 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
-        idxqry = """
+        indexes_query = """
             SELECT TRIM(ix.rdb$index_name) AS index_name,
                    ix.rdb$unique_flag AS unique_flag,
                    TRIM(ic.rdb$field_name) AS field_name,
@@ -1652,14 +1648,14 @@ class FBDialect(default.DefaultDialect):
                              ON rc.rdb$index_name = ic.rdb$index_name
             WHERE ix.rdb$relation_name = :relation_name
               AND ix.rdb$foreign_key IS NULL
-              AND rc.rdb$constraint_type IS NULL
+              AND COALESCE(rc.rdb$constraint_type, '') <> 'PRIMARY KEY'
             ORDER BY ix.rdb$index_name, ic.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
 
         # Do not use connection.exec_driver_sql() here. 
         #    During tests we need to commit CREATE INDEX before this query. See provision.py listener.
-        c = connection.execute(text(idxqry), { "relation_name": tablename })
+        c = connection.execute(text(indexes_query), { "relation_name": tablename })
 
         indexes = util.defaultdict(dict)
         for row in c:
@@ -1681,7 +1677,7 @@ class FBDialect(default.DefaultDialect):
             colqry = """
                 SELECT TRIM(r.rdb$field_name) AS fname
                 FROM rdb$relation_fields r
-                WHERE r.rdb$relation_name=?
+                WHERE r.rdb$relation_name = ?
             """
             return {self.normalize_name(row.fname) 
                     for row in connection.exec_driver_sql(colqry, (tablename,))}
@@ -1707,7 +1703,7 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
-        ucqry = """
+        unique_constraints_query = """
             SELECT TRIM(rc.rdb$constraint_name) AS cname,
                    TRIM(se.rdb$field_name) AS column_name
             FROM rdb$index_segments se
@@ -1716,13 +1712,13 @@ class FBDialect(default.DefaultDialect):
                  JOIN rdb$relations r
                    ON r.rdb$relation_name = rc.rdb$relation_name
                   AND r.rdb$system_flag = 0
-            WHERE rc.rdb$constraint_type = ? AND
+            WHERE rc.rdb$constraint_type = 'UNIQUE' AND
                   r.rdb$relation_name = ?
             ORDER BY rc.rdb$constraint_name, se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
+        c = connection.exec_driver_sql(unique_constraints_query, (tablename,))
 
-        c = connection.exec_driver_sql(ucqry, ("UNIQUE", tablename))
         ucs = util.defaultdict(
             lambda: {
                 "name": None,
@@ -1748,14 +1744,13 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_table_comment(self, connection, table_name, schema=None, **kw):
-        tcqry = """
+        table_comment_query = """
             SELECT TRIM(rdb$description) AS comment
             FROM rdb$relations
             WHERE rdb$relation_name = ?
         """
-        tablename = self.denormalize_name(table_name)
-        
-        c = connection.exec_driver_sql(tcqry, (tablename,))
+        tablename = self.denormalize_name(table_name)        
+        c = connection.exec_driver_sql(table_comment_query, (tablename,))
         
         row = c.fetchone()
         if row:
@@ -1765,7 +1760,7 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_check_constraints(self, connection, table_name, schema=None, **kw):
-        ccqry = """
+        check_constraints_query = """
             SELECT TRIM(rc.rdb$constraint_name) AS cname,
                    TRIM(SUBSTRING(tr.rdb$trigger_source FROM 8 FOR CHAR_LENGTH(tr.rdb$trigger_source) - 8)) AS sqltext
             FROM rdb$relation_constraints rc
@@ -1774,13 +1769,13 @@ class FBDialect(default.DefaultDialect):
                  JOIN rdb$triggers tr
                    ON tr.rdb$trigger_name = ck.rdb$trigger_name AND
                       tr.rdb$trigger_type = 1 /* BEFORE UPDATE */
-            WHERE rc.rdb$constraint_type = ? AND
+            WHERE rc.rdb$constraint_type = 'CHECK' AND
                   rc.rdb$relation_name = ?
             ORDER BY rc.rdb$constraint_name
         """
         tablename = self.denormalize_name(table_name)
-
-        c = connection.exec_driver_sql(ccqry, ("CHECK", tablename))
+        c = connection.exec_driver_sql(check_constraints_query, (tablename,))
+        
         ccs = util.defaultdict(
             lambda: {
                 "name": None,
