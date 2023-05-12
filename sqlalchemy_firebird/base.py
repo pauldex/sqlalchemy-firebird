@@ -1401,18 +1401,15 @@ class FBDialect(default.DefaultDialect):
             WHERE rdb$relation_name = ?
               AND rdb$relation_type = 1 /* VIEW */
         """
-        rp = connection.exec_driver_sql(
+        c = connection.exec_driver_sql(
             qry, 
 			(self.denormalize_name(view_name), )
         )
-        row = rp.first()
+        row = c.fetchone()
         if row:
             return row.view_source
 
-        if not self.has_table(connection, view_name):
-            raise exc.NoSuchTableError(view_name)
-
-        return None
+        raise exc.NoSuchTableError(view_name)
 
     @reflection.cache
     def get_columns(  # noqa: C901
@@ -1473,10 +1470,6 @@ class FBDialect(default.DefaultDialect):
                 ORDER BY r.rdb$field_position
             """ 
 
-        # get the PK, used to determine the eventual associated sequence
-        pk_constraint = self.get_pk_constraint(connection, table_name)
-        pkey_cols = pk_constraint["constrained_columns"]
-
         tablename = self.denormalize_name(table_name)
         # get all of the fields for this table
         c = [row for row in connection.exec_driver_sql(tblqry, (tablename,))]
@@ -1501,10 +1494,7 @@ class FBDialect(default.DefaultDialect):
             elif colspec == "TEXT":
                 coltype = TEXT(row.flen)
             elif colspec == "BLOB":
-                if row.stype == 1:
-                    coltype = TEXT()
-                else:
-                    coltype = BLOB()
+                coltype = TEXT() if row.stype == 1 else BLOB()
             else:
                 coltype = coltype()
 
@@ -1576,15 +1566,13 @@ class FBDialect(default.DefaultDialect):
         tablename = self.denormalize_name(table_name)
         # get primary key fields
         c = connection.exec_driver_sql(keyqry, ("PRIMARY KEY", tablename))
-        pkfields = [self.normalize_name(r.fname) for r in c.fetchall()]
 
+        pkfields = [self.normalize_name(r.fname) for r in c.fetchall()]
         if pkfields:
             return {"constrained_columns": pkfields, "name": None}
         
-        # TODO: should not raise when called from get_multi_*
-
-        # if not self.has_table(connection, table_name, schema):
-        #     raise exc.NoSuchTableError(table_name)
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
 
         return reflection.ReflectionDefaults.pk_constraint() if self.using_sqlalchemy2 else { "name": None, "constrained_columns": [], }
 
@@ -1645,10 +1633,8 @@ class FBDialect(default.DefaultDialect):
         if result:
             return result
         
-        # TODO: should not raise when called from get_multi_*
-
-        # if not self.has_table(connection, table_name, schema):
-        #     raise exc.NoSuchTableError(table_name)
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
         
         return reflection.ReflectionDefaults.foreign_keys() if self.using_sqlalchemy2 else []
 
@@ -1714,10 +1700,8 @@ class FBDialect(default.DefaultDialect):
         if result:
             return _adjust_column_names_for_expressions(result, tablename)
         
-        # TODO: should not raise when called from get_multi_*
-
-        # if not self.has_table(connection, table_name, schema):
-        #     raise exc.NoSuchTableError(table_name)
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
         
         return reflection.ReflectionDefaults.indexes() if self.using_sqlalchemy2 else []
 
@@ -1757,10 +1741,8 @@ class FBDialect(default.DefaultDialect):
         if result:
             return result
         
-        # TODO: should not raise when called from get_multi_*
-
-        # if not self.has_table(connection, table_name, schema):
-        #     raise exc.NoSuchTableError(table_name)
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
         
         return reflection.ReflectionDefaults.unique_constraints() if self.using_sqlalchemy2 else []
 
@@ -1775,16 +1757,11 @@ class FBDialect(default.DefaultDialect):
         
         c = connection.exec_driver_sql(tcqry, (tablename,))
         
-        comment = c.scalar()
-        if comment is not None:
-            return {"text": comment}
+        row = c.fetchone()
+        if row:
+            return {"text": row[0]}
 
-        # TODO: should not raise when called from get_multi_*
-
-        # if not self.has_table(connection, table_name, schema):
-        #     raise exc.NoSuchTableError(table_name)
-        
-        return reflection.ReflectionDefaults.table_comment() if self.using_sqlalchemy2 else {"text": None}
+        raise exc.NoSuchTableError(table_name)
 
     @reflection.cache
     def get_check_constraints(self, connection, table_name, schema=None, **kw):
@@ -1822,10 +1799,8 @@ class FBDialect(default.DefaultDialect):
         if result:
             return result
 
-        # TODO: should not raise when called from get_multi_*
-
-        # if not self.has_table(connection, table_name, schema):
-        #     raise exc.NoSuchTableError(table_name)
+        if not self.has_table(connection, table_name, schema):
+            raise exc.NoSuchTableError(table_name)
                 
         return reflection.ReflectionDefaults.check_constraints() if self.using_sqlalchemy2 else []
 
