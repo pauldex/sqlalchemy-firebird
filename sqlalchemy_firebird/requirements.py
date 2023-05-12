@@ -297,7 +297,8 @@ class Requirements(SuiteRequirements):
     # 1061
     @property
     def array_type(self):
-        return exclusions.open()
+        # Firebird ARRAY type not implemented.
+        return exclusions.closed()
 
     # 1993
     @property
