@@ -1,917 +1,20 @@
 from packaging import version
 
+from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy import exc
 from sqlalchemy import schema as sa_schema
 from sqlalchemy import sql
 from sqlalchemy import text
 from sqlalchemy import types as sqltypes
 from sqlalchemy import util
-from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import expression
-from sqlalchemy.types import BIGINT
-from sqlalchemy.types import BINARY
 from sqlalchemy.types import BLOB
-from sqlalchemy.types import BOOLEAN
-from sqlalchemy.types import DATE
-from sqlalchemy.types import FLOAT
-from sqlalchemy.types import INTEGER
 from sqlalchemy.types import Integer
 from sqlalchemy.types import NUMERIC
-from sqlalchemy.types import REAL 
-from sqlalchemy.types import SMALLINT
 from sqlalchemy.types import TEXT
-from sqlalchemy.types import TIME
-from sqlalchemy.types import TIMESTAMP
-from sqlalchemy.types import VARBINARY
-
-from .types import CHAR
-from .types import VARCHAR
-from .types import DOUBLE_PRECISION
-
-
-RESERVED_WORDS_INITIAL = {
-    "active",
-    "add",
-    "admin",
-    "after",
-    "all",
-    "alter",
-    "and",
-    "any",
-    "as",
-    "asc",
-    "ascending",
-    "at",
-    "auto",
-    "avg",
-    "before",
-    "begin",
-    "between",
-    "bigint",
-    "bit_length",
-    "blob",
-    "both",
-    "by",
-    "case",
-    "cast",
-    "char",
-    "character",
-    "character_length",
-    "char_length",
-    "check",
-    "close",
-    "collate",
-    "column",
-    "commit",
-    "committed",
-    "computed",
-    "conditional",
-    "connect",
-    "constraint",
-    "containing",
-    "count",
-    "create",
-    "cross",
-    "cstring",
-    "current",
-    "current_connection",
-    "current_date",
-    "current_role",
-    "current_time",
-    "current_timestamp",
-    "current_transaction",
-    "current_user",
-    "cursor",
-    "database",
-    "date",
-    "day",
-    "dec",
-    "decimal",
-    "declare",
-    "default",
-    "delete",
-    "desc",
-    "descending",
-    "disconnect",
-    "distinct",
-    "do",
-    "domain",
-    "double",
-    "drop",
-    "else",
-    "end",
-    "entry_point",
-    "escape",
-    "exception",
-    "execute",
-    "exists",
-    "exit",
-    "external",
-    "extract",
-    "fetch",
-    "file",
-    "filter",
-    "float",
-    "for",
-    "foreign",
-    "from",
-    "full",
-    "function",
-    "gdscode",
-    "generator",
-    "gen_id",
-    "global",
-    "grant",
-    "group",
-    "having",
-    "hour",
-    "if",
-    "in",
-    "inactive",
-    "index",
-    "inner",
-    "input_type",
-    "insensitive",
-    "insert",
-    "int",
-    "integer",
-    "into",
-    "is",
-    "isolation",
-    "join",
-    "key",
-    "leading",
-    "left",
-    "length",
-    "level",
-    "like",
-    "long",
-    "lower",
-    "manual",
-    "max",
-    "maximum_segment",
-    "merge",
-    "min",
-    "minute",
-    "module_name",
-    "month",
-    "names",
-    "national",
-    "natural",
-    "nchar",
-    "no",
-    "not",
-    "null",
-    "numeric",
-    "octet_length",
-    "of",
-    "on",
-    "only",
-    "open",
-    "option",
-    "or",
-    "order",
-    "outer",
-    "output_type",
-    "overflow",
-    "page",
-    "pages",
-    "page_size",
-    "parameter",
-    "password",
-    "plan",
-    "position",
-    "post_event",
-    "precision",
-    "primary",
-    "privileges",
-    "procedure",
-    "protected",
-    "rdb$db_key",
-    "read",
-    "real",
-    "record_version",
-    "recreate",
-    "recursive",
-    "references",
-    "release",
-    "reserv",
-    "reserving",
-    "retain",
-    "returning_values",
-    "returns",
-    "revoke",
-    "right",
-    "rollback",
-    "rows",
-    "row_count",
-    "savepoint",
-    "schema",
-    "second",
-    "segment",
-    "select",
-    "sensitive",
-    "set",
-    "shadow",
-    "shared",
-    "singular",
-    "size",
-    "smallint",
-    "snapshot",
-    "some",
-    "sort",
-    "sqlcode",
-    "stability",
-    "start",
-    "starting",
-    "starts",
-    "statistics",
-    "sub_type",
-    "sum",
-    "suspend",
-    "table",
-    "then",
-    "time",
-    "timestamp",
-    "to",
-    "trailing",
-    "transaction",
-    "trigger",
-    "trim",
-    "uncommitted",
-    "union",
-    "unique",
-    "update",
-    "upper",
-    "user",
-    "using",
-    "value",
-    "values",
-    "varchar",
-    "variable",
-    "varying",
-    "view",
-    "wait",
-    "when",
-    "where",
-    "while",
-    "with",
-    "work",
-    "write",
-    "year",
-}
-
-# https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-appx03-reskeywords
-# This set is for Firebird versions >= 2.5.1
-RESERVED_WORDS_25 = {
-    "add",
-    "admin",
-    "all",
-    "alter",
-    "and",
-    "any",
-    "as",
-    "at",
-    "avg",
-    "begin",
-    "between",
-    "bigint",
-    "bit_length",
-    "blob",
-    "both",
-    "by",
-    "case",
-    "cast",
-    "char",
-    "char_length",
-    "character",
-    "character_length",
-    "check",
-    "close",
-    "collate",
-    "column",
-    "commit",
-    "connect",
-    "constraint",
-    "count",
-    "create",
-    "cross",
-    "current",
-    "current_connection",
-    "current_date",
-    "current_role",
-    "current_time",
-    "current_timestamp",
-    "current_transaction",
-    "current_user",
-    "cursor",
-    "date",
-    "day",
-    "dec",
-    "decimal",
-    "declare",
-    "default",
-    "delete",
-    "deleting",
-    "disconnect",
-    "distinct",
-    "double",
-    "drop",
-    "else",
-    "end",
-    "escape",
-    "execute",
-    "exists",
-    "external",
-    "extract",
-    "fetch",
-    "filter",
-    "float",
-    "for",
-    "foreign",
-    "from",
-    "full",
-    "function",
-    "gdscode",
-    "global",
-    "grant",
-    "group",
-    "having",
-    "hour",
-    "in",
-    "index",
-    "inner",
-    "insensitive",
-    "insert",
-    "inserting",
-    "int",
-    "integer",
-    "into",
-    "is",
-    "join",
-    "leading",
-    "left",
-    "like",
-    "long",
-    "lower",
-    "max",
-    "maximum_segment",
-    "merge",
-    "min",
-    "minute",
-    "month",
-    "national",
-    "natural",
-    "nchar",
-    "no",
-    "not",
-    "null",
-    "numeric",
-    "octet_length",
-    "of",
-    "on",
-    "only",
-    "open",
-    "or",
-    "order",
-    "outer",
-    "parameter",
-    "plan",
-    "position",
-    "post_event",
-    "precision",
-    "primary",
-    "procedure",
-    "rdb$db_key",
-    "real",
-    "record_version",
-    "recreate",
-    "recursive",
-    "references",
-    "release",
-    "returning_values",
-    "returns",
-    "revoke",
-    "right",
-    "rollback",
-    "row_count",
-    "rows",
-    "savepoint",
-    "second",
-    "select",
-    "sensitive",
-    "set",
-    "similar",
-    "smallint",
-    "some",
-    "sqlcode",
-    "sqlstate",
-    "start",
-    "sum",
-    "table",
-    "then",
-    "time",
-    "timestamp",
-    "to",
-    "trailing",
-    "trigger",
-    "trim",
-    "union",
-    "unique",
-    "update",
-    "updating",
-    "upper",
-    "user",
-    "using",
-    "value",
-    "values",
-    "varchar",
-    "variable",
-    "varying",
-    "view",
-    "when",
-    "where",
-    "while",
-    "with",
-    "year",
-}
-
-# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html#fblangref30-appx03-reskeywords
-RESERVED_WORDS_30 = {
-    "add",
-    "admin",
-    "all",
-    "alter",
-    "and",
-    "any",
-    "as",
-    "at",
-    "avg",
-    "begin",
-    "between",
-    "bigint",
-    "bit_length",
-    "blob",
-    "boolean",
-    "both",
-    "by",
-    "case",
-    "cast",
-    "char",
-    "character",
-    "character_length",
-    "char_length",
-    "check",
-    "close",
-    "collate",
-    "column",
-    "commit",
-    "connect",
-    "constraint",
-    "corr",
-    "count",
-    "covar_pop",
-    "covar_samp",
-    "create",
-    "cross",
-    "current",
-    "current_connection",
-    "current_date",
-    "current_role",
-    "current_time",
-    "current_timestamp",
-    "current_transaction",
-    "current_user",
-    "cursor",
-    "date",
-    "day",
-    "dec",
-    "decimal",
-    "declare",
-    "default",
-    "delete",
-    "deleting",
-    "deterministic",
-    "disconnect",
-    "distinct",
-    "double",
-    "drop",
-    "else",
-    "end",
-    "escape",
-    "execute",
-    "exists",
-    "external",
-    "extract",
-    "false",
-    "fetch",
-    "filter",
-    "float",
-    "for",
-    "foreign",
-    "from",
-    "full",
-    "function",
-    "gdscode",
-    "global",
-    "grant",
-    "group",
-    "having",
-    "hour",
-    "in",
-    "index",
-    "inner",
-    "insensitive",
-    "insert",
-    "inserting",
-    "int",
-    "integer",
-    "into",
-    "is",
-    "join",
-    "leading",
-    "left",
-    "like",
-    "long",
-    "lower",
-    "max",
-    "merge",
-    "min",
-    "minute",
-    "month",
-    "national",
-    "natural",
-    "nchar",
-    "no",
-    "not",
-    "null",
-    "numeric",
-    "octet_length",
-    "of",
-    "offset",
-    "on",
-    "only",
-    "open",
-    "or",
-    "order",
-    "outer",
-    "over",
-    "parameter",
-    "plan",
-    "position",
-    "post_event",
-    "precision",
-    "primary",
-    "procedure",
-    "rdb$db_key",
-    "rdb$record_version",
-    "real",
-    "record_version",
-    "recreate",
-    "recursive references",
-    "regr_avgx",
-    "regr_avgy",
-    "regr_count",
-    "regr_intercept",
-    "regr_r2",
-    "regr_slope",
-    "regr_sxx",
-    "regr_sxy",
-    "regr_syy",
-    "release",
-    "return",
-    "returning_values",
-    "returns",
-    "revoke",
-    "right",
-    "rollback",
-    "row",
-    "rows",
-    "row_count",
-    "savepoint",
-    "scroll",
-    "second",
-    "select",
-    "sensitive",
-    "set",
-    "similar",
-    "smallint",
-    "some",
-    "sqlcode",
-    "sqlstate",
-    "start",
-    "stddev_pop",
-    "stddev_samp",
-    "sum",
-    "table",
-    "then",
-    "time",
-    "timestamp",
-    "to",
-    "trailing",
-    "trigger",
-    "trim",
-    "true",
-    "union",
-    "unique",
-    "unknown",
-    "update",
-    "updating",
-    "upper",
-    "user",
-    "using",
-    "value",
-    "values",
-    "varchar",
-    "variable",
-    "varying",
-    "var_pop",
-    "var_samp",
-    "view",
-    "when",
-    "where",
-    "while",
-    "with",
-    "year",
-}
-
-# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-reskeywords-reswords
-# This set is also good for Firebird version 5.0 Beta 1
-# https://www.firebirdsql.org/file/documentation/release_notes/Firebird-5.0.0-Beta1-ReleaseNotes.pdf
-RESERVED_WORDS_40 = {
-    "add",
-    "admin",
-    "all",
-    "alter",
-    "and",
-    "any",
-    "as",
-    "at",
-    "avg",
-    "begin",
-    "between",
-    "bigint",
-    "binary",
-    "bit_length",
-    "blob",
-    "boolean",
-    "both",
-    "by",
-    "case",
-    "cast",
-    "char",
-    "character",
-    "character_length",
-    "char_length",
-    "check",
-    "close",
-    "collate",
-    "column",
-    "comment",
-    "commit",
-    "connect",
-    "constraint",
-    "corr",
-    "count",
-    "covar_pop",
-    "covar_samp",
-    "create",
-    "cross",
-    "current",
-    "current_connection",
-    "current_date",
-    "current_role",
-    "current_time",
-    "current_timestamp",
-    "current_transaction",
-    "current_user",
-    "cursor",
-    "date",
-    "day",
-    "dec",
-    "decfloat",
-    "decimal",
-    "declare",
-    "default",
-    "delete",
-    "deleting",
-    "deterministic",
-    "disconnect",
-    "distinct",
-    "double",
-    "drop",
-    "else",
-    "end",
-    "escape",
-    "execute",
-    "exists",
-    "external",
-    "extract",
-    "false",
-    "fetch",
-    "filter",
-    "float",
-    "for",
-    "foreign",
-    "from",
-    "full",
-    "function",
-    "gdscode",
-    "global",
-    "grant",
-    "group",
-    "having",
-    "hour",
-    "in",
-    "index",
-    "inner",
-    "insensitive",
-    "insert",
-    "inserting",
-    "int",
-    "int128",
-    "integer",
-    "into",
-    "is",
-    "join",
-    "lateral",
-    "leading",
-    "left",
-    "like",
-    "local",
-    "localtime",
-    "localtimestamp",
-    "long",
-    "lower",
-    "max",
-    "merge",
-    "min",
-    "minute",
-    "month",
-    "national",
-    "natural",
-    "nchar",
-    "no",
-    "not",
-    "null",
-    "numeric",
-    "octet_length",
-    "of",
-    "offset",
-    "on",
-    "only",
-    "open",
-    "or",
-    "order",
-    "outer",
-    "over",
-    "parameter",
-    "plan",
-    "position",
-    "post_event",
-    "precision",
-    "primary",
-    "procedure",
-    "publication",
-    "rdb$db_key",
-    "rdb$error",
-    "rdb$get_context",
-    "rdb$get_transaction_cn",
-    "rdb$record_version",
-    "rdb$role_in_use",
-    "rdb$set_context",
-    "rdb$system_privilege",
-    "real",
-    "record_version",
-    "recreate",
-    "recursive",
-    "references",
-    "regr_avgx",
-    "regr_avgy",
-    "regr_count",
-    "regr_intercept",
-    "regr_r2",
-    "regr_slope",
-    "regr_sxx",
-    "regr_sxy",
-    "regr_syy",
-    "release",
-    "resetting",
-    "return",
-    "returning_values",
-    "returns",
-    "revoke",
-    "right",
-    "rollback",
-    "row",
-    "rows",
-    "row_count",
-    "savepoint",
-    "scroll",
-    "second",
-    "select",
-    "sensitive",
-    "set",
-    "similar",
-    "smallint",
-    "some",
-    "sqlcode",
-    "sqlstate",
-    "start",
-    "stddev_pop",
-    "stddev_samp",
-    "sum",
-    "table",
-    "then",
-    "time",
-    "timestamp",
-    "timezone_hour",
-    "timezone_minute",
-    "to",
-    "trailing",
-    "trigger",
-    "trim",
-    "true",
-    "unbounded",
-    "union",
-    "unique",
-    "unknown",
-    "update",
-    "updating",
-    "upper",
-    "user",
-    "using",
-    "value",
-    "values",
-    "varbinary",
-    "varchar",
-    "variable",
-    "varying",
-    "var_pop",
-    "var_samp",
-    "view",
-    "when",
-    "where",
-    "while",
-    "window",
-    "with",
-    "without",
-    "year",
-}
-
-# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-datatypes-syntax-scalar
-ischema_names = {
-    "SMALLINT": SMALLINT,
-    "INT": INTEGER,
-    "INTEGER": INTEGER,
-    "BIGINT": BIGINT,
-    "INT128": BIGINT, # TODO: INT128
-
-    "REAL": REAL,
-    "FLOAT": FLOAT,
-    "DOUBLE PRECISION": DOUBLE_PRECISION,
-    "DECFLOAT": FLOAT, # TODO: DEFCLOAT
-
-    "BOOLEAN": BOOLEAN,
-
-    "DATE": DATE,
-    "TIME": TIME,
-    "TIME WITH TIME ZONE": TIME,
-    "TIME WITHOUT TIME ZONE": TIME,
-
-    "TIMESTAMP": TIMESTAMP,
-    "TIMESTAMP WITH TIME ZONE": TIMESTAMP,
-    "TIMESTAMP WITHOUT TIME ZONE": TIMESTAMP,
-
-    "DECIMAL": NUMERIC,
-    "NUMERIC": NUMERIC,
-
-    "VARCHAR": VARCHAR,
-    "CHAR VARYING": VARCHAR,
-    "CHARACTER VARYING": VARCHAR,
-    
-    "CHAR": CHAR,
-    "CHARACTER": CHAR,
-
-    "BINARY": BINARY,
-
-    "VARBINARY": VARBINARY,
-    "BINARY VARYING": VARBINARY,
-
-    # Compatibility
-    "SHORT": SMALLINT,
-    "LONG": INTEGER,
-    "QUAD": FLOAT,
-    "TEXT": TEXT,
-    "INT64": BIGINT,
-    "DOUBLE": FLOAT,
-    "VARYING": VARCHAR,
-    "CSTRING": CHAR,
-    "BLOB": BLOB,
-}
 
 EXPRESSION_SEPARATOR = "||"
 
@@ -919,7 +22,7 @@ class FBCompiler(sql.compiler.SQLCompiler):
     ansi_bind_rules = True
 
     def visit_empty_set_expr(self, element_types, **kw):
-        return "SELECT 1 FROM rdb$database WHERE 1!=1"
+        return "SELECT 1 FROM rdb$database WHERE 1 != 1"
 
     def visit_sequence(self, sequence, **kw):
         return "GEN_ID(%s, 1)" % self.preparer.format_sequence(sequence)
@@ -1205,14 +308,12 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
 
 
 class FBIdentifierPreparer(sql.compiler.IdentifierPreparer):
-    """Install Firebird specific reserved words."""
-
-    # reserved_words is updated when Firebird version is known
-    reserved_words = RESERVED_WORDS_40
-
     illegal_initial_characters = compiler.ILLEGAL_INITIAL_CHARACTERS.union(
         ["_"]
     )
+
+    def __init__(self, dialect):
+        super().__init__(dialect, omit_schema=True)
 
 
 class FBExecutionContext(default.DefaultExecutionContext):
@@ -1227,8 +328,6 @@ class FBExecutionContext(default.DefaultExecutionContext):
 
 
 class FBDialect(default.DefaultDialect):
-    max_identifier_length = 63
-
     supports_alter = True
     supports_sane_rowcount = True
     supports_sane_multi_rowcount = False
@@ -1245,12 +344,8 @@ class FBDialect(default.DefaultDialect):
     supports_comments = True
     inline_comments = False
     supports_default_values = True
-
     supports_default_metavalue = True
-
     supports_identity_columns = True
-
-    ischema_names = ischema_names
 
     statement_compiler = FBCompiler
     ddl_compiler = FBDDLCompiler
@@ -1283,38 +378,25 @@ class FBDialect(default.DefaultDialect):
     def initialize(self, connection):
         super().initialize(connection)
 
-        # https://docs.sqlalchemy.org/en/20/core/engines.html
-        # max_identifier_length defines ..."the maximum number of characters
-        # that may be used in a SQL identifier such as a table_name, column
-        # name, or label name".
-        #
-        # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html
-        # For Firebird version 4.0 and greater, the "...maximum identifier
-        # length is 63 characters character set UTF8 (252 bytes)".
-        #
-        # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html
-        # "Length cannot exceed 31 bytes.  Identifiers are stored in character
-        # set UNICODE_FSS, which means characters outside the ASCII range are
-        # stored using 2 or 3 bytes."
-        #
-        # https://www.firebirdsql.org/file/documentation/release_notes/Firebird-5.0.0-Beta1-ReleaseNotes.pdf
-        # Note that reserved words in Firebird 5 are the same as those in Firebird 4
-
-        if self.server_version_info < (4,):
-            self.max_identifier_length = 31
-            self.preparer.reserved_words = RESERVED_WORDS_30
-
         if self.server_version_info < (3,):
-            self.supports_native_boolean = False
+            # Firebird 2.5
             self.supports_identity_columns = False
-            self.preparer.reserved_words = RESERVED_WORDS_25
+            self.supports_native_boolean = False
+
+            from .fb_info25 import (MAX_IDENTIFIER_LENGTH, RESERVED_WORDS, ISCHEMA_NAMES)
+        elif self.server_version_info < (4,):
+            # Firebird 3.0
+            from .fb_info30 import (MAX_IDENTIFIER_LENGTH, RESERVED_WORDS, ISCHEMA_NAMES)
+        else:
+            # Firebird 4.0 or higher
+            from .fb_info40 import (MAX_IDENTIFIER_LENGTH, RESERVED_WORDS, ISCHEMA_NAMES)
+
+        self.max_identifier_length = MAX_IDENTIFIER_LENGTH
+        self.preparer.reserved_words = RESERVED_WORDS
+        self.ischema_names = ISCHEMA_NAMES
 
     @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
-        # Can't have a table whose name is too long.
-        if len(table_name) > self.max_identifier_length:
-            return False
-
         has_table_query = """
             SELECT 1 AS has_table
             FROM rdb$relations
@@ -1326,7 +408,6 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def has_sequence(self, connection, sequence_name, schema=None, **kw):
-        """Return ``True`` if the given sequence (generator) exists."""
         has_sequence_query = """
             SELECT 1 AS has_sequence 
             FROM rdb$generators
@@ -1370,7 +451,6 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
-        # see http://www.firebirdfaq.org/faq174/
         views_query = """
             SELECT TRIM(rdb$relation_name) AS relation_name
             FROM rdb$relations
@@ -1590,14 +670,14 @@ class FBDialect(default.DefaultDialect):
                  JOIN rdb$ref_constraints rfc 
                    ON rfc.rdb$constraint_name = rc.rdb$constraint_name
                  JOIN rdb$indices ix1 
-                   ON ix1.rdb$index_name=rc.rdb$index_name
+                   ON ix1.rdb$index_name = rc.rdb$index_name
                  JOIN rdb$indices ix2 
-                   ON ix2.rdb$index_name=ix1.rdb$foreign_key
+                   ON ix2.rdb$index_name = ix1.rdb$foreign_key
                  JOIN rdb$index_segments cse 
-                   ON cse.rdb$index_name=ix1.rdb$index_name
+                   ON cse.rdb$index_name = ix1.rdb$index_name
                  JOIN rdb$index_segments se 
-                   ON se.rdb$index_name=ix2.rdb$index_name
-                  AND se.rdb$field_position=cse.rdb$field_position
+                   ON se.rdb$index_name = ix2.rdb$index_name
+                  AND se.rdb$field_position = cse.rdb$field_position
             WHERE rc.rdb$constraint_type = 'FOREIGN KEY'
               AND rc.rdb$relation_name = ?
             ORDER BY rc.rdb$constraint_name, se.rdb$field_position
@@ -1647,7 +727,7 @@ class FBDialect(default.DefaultDialect):
                    TRIM(ix.rdb$expression_source) expression_source
             FROM rdb$indices ix
                 LEFT OUTER JOIN rdb$index_segments ic
-                  ON ic.rdb$index_name=ix.rdb$index_name
+                  ON ic.rdb$index_name = ix.rdb$index_name
                 LEFT OUTER JOIN rdb$relation_constraints rc
                              ON rc.rdb$index_name = ic.rdb$index_name
             WHERE ix.rdb$relation_name = :relation_name
