@@ -9,29 +9,24 @@ from sqlalchemy import Index
 
 from sqlalchemy.testing.suite import *  # noqa: F401, F403
 
-from sqlalchemy.testing.suite import CTETest as _CTETest
 from sqlalchemy.testing.suite import (
+    CTETest as _CTETest,
     ComponentReflectionTest as _ComponentReflectionTest,
-)
-from sqlalchemy.testing.suite import (
     ComponentReflectionTestExtra as _ComponentReflectionTestExtra,
-)
-from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
-from sqlalchemy.testing.suite import (
+    CompoundSelectTest as _CompoundSelectTest,
     DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest,
-)
-from sqlalchemy.testing.suite import DateTimeTZTest as _DateTimeTZTest
-from sqlalchemy.testing.suite import TimeTZTest as _TimeTZTest
-from sqlalchemy.testing.suite import StringTest as _StringTest
-
-from sqlalchemy.testing.suite import InsertBehaviorTest as _InsertBehaviorTest
-from sqlalchemy.testing.suite import NumericTest as _NumericTest
-from sqlalchemy.testing.suite import RowCountTest as _RowCountTest
-from sqlalchemy.testing.suite import (
+    IdentityReflectionTest as _IdentityReflectionTest,
+    DateTimeTZTest as _DateTimeTZTest,
+    TimeTZTest as _TimeTZTest,
+    StringTest as _StringTest,
+    InsertBehaviorTest as _InsertBehaviorTest,
+    NumericTest as _NumericTest,
+    RowCountTest as _RowCountTest,
     SimpleUpdateDeleteTest as _SimpleUpdateDeleteTest,
 )
 
 from firebird.driver.types import get_timezone
+
 
 @pytest.mark.skip(
     reason="These tests fails in Firebird because a DELETE FROM <table> with self-referencing FK raises integrity errors."
@@ -41,15 +36,9 @@ class CTETest(_CTETest):
 
 
 class ComponentReflectionTest(_ComponentReflectionTest):
-    # @testing.combinations(
-    #     (True, testing.requires.schemas), (False,), argnames="use_schema"
-    # )
     def test_get_unique_constraints(self, metadata, connection):
         # Clone of super().test_get_unique_constraints() adapted for Firebird.
 
-        # if use_schema:
-        #     schema = config.test_schema
-        # else:
         schema = None
         uniques = sorted(
             [
@@ -233,10 +222,19 @@ class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
         super().test_plain_union()
 
 
+class IdentityReflectionTest(_IdentityReflectionTest):
+    # ToDo: How to avoid the setup method of this class to run in Firebird < 4.0?
+
+    @testing.skip(
+        lambda config: config.db.dialect.server_version_info < (4, 0),
+        "GENERATED ... AS IDENTITY columns are supported only in Firebird 4.0+",
+    )
+    def test_reflect_identity(self):
+        super().test_reflect_identity()
+
+
 # Firebird-driver needs special time zone handling.
 #   https://github.com/FirebirdSQL/python3-driver/issues/19#issuecomment-1523045743
-
-
 
 
 class DateTimeTZTest(_DateTimeTZTest):
@@ -298,7 +296,7 @@ class RowCountTest(_RowCountTest):
     def test_update_rowcount2(self, connection):
         super().test_update_rowcount2(connection)
 
-    # ToDo: Run this test only on Firebird 5.0+
+    # ToDo: How to run this test only on Firebird 5.0+?
 
     # @testing.skip(
     #     lambda config: config.db.dialect.server_version_info < (5, 0),
@@ -320,3 +318,6 @@ class SimpleUpdateDeleteTest(_SimpleUpdateDeleteTest):
     )
     def test_delete(self, connection):
         super().test_delete(connection)
+
+
+# ToDo: How to skip SequenceTest (from sqlalchemy/test/sql/test_sequences.py) only on Firebird 2.5?
