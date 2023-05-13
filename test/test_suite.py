@@ -226,7 +226,7 @@ class IdentityReflectionTest(_IdentityReflectionTest):
     # ToDo: How to avoid the setup method of this class to run in Firebird < 4.0?
 
     @testing.skip(
-        lambda config: config.db.dialect.server_version_info < (4, 0),
+        lambda config: config.db.dialect.server_version_info < (4,),
         "GENERATED ... AS IDENTITY columns are supported only in Firebird 4.0+",
     )
     def test_reflect_identity(self):
@@ -299,7 +299,7 @@ class RowCountTest(_RowCountTest):
     # ToDo: How to run this test only on Firebird 5.0+?
 
     # @testing.skip(
-    #     lambda config: config.db.dialect.server_version_info < (5, 0),
+    #     lambda config: config.db.dialect.server_version_info < (5,),
     #     "Multiple rows UPDATE RETURNING are supported only in Firebird 5.0+",
     # )
     # def test_update_delete_rowcount_return_defaults(self, connection, implicit_returning, dml, **kw):
