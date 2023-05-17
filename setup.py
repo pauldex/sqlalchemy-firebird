@@ -45,6 +45,13 @@ setup(
     },
     packages=find_packages(include=["sqlalchemy_firebird"]),
     include_package_data=True,
-    install_requires=["SQLAlchemy>1.3.16", "fdb"],
+    install_requires=["SQLAlchemy>=1.4"],
     zip_safe=False,
+    entry_points={
+        "sqlalchemy.dialects": [
+            "firebird = sqlalchemy_firebird.firebird:FBDialect_firebird",
+            "firebird.fdb = sqlalchemy_firebird.fdb:FBDialect_fdb",
+            "firebird.firebird = sqlalchemy_firebird.firebird:FBDialect_firebird",
+        ]
+    },
 )

@@ -1,9 +1,9 @@
 """Provide Firebird 4.0 specific information.
 
     Variables:
-        max_identifier_length -> int
+        MAX_IDENTIFIER_LENGTH -> int
         RESERVED_WORDS -> set
-        ischema_names -> dict
+        ISCHEMA_NAMES -> dict
 
 .._Firebird 4.0:
     https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-intro
@@ -12,6 +12,10 @@
     https://www.firebirdsql.org/file/documentation/release_notes/Firebird-5.0.0-Beta1-ReleaseNotes.pdf
 
 """
+
+from packaging import version
+
+from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy.types import BIGINT
 from sqlalchemy.types import BINARY
 from sqlalchemy.types import BLOB
@@ -26,21 +30,15 @@ from sqlalchemy.types import TEXT
 from sqlalchemy.types import TIME
 from sqlalchemy.types import TIMESTAMP
 from sqlalchemy.types import VARBINARY
-from sqlalchemy import __version__ as sqla_version
 
-if sqla_version < "2":
-    from sqlalchemy.types import (
-        FLOAT as DOUBLE_PRECISION,
-    )  # TODO: DOUBLE_PRECISION
-else:
-    from sqlalchemy.types import DOUBLE_PRECISION
 from .types import CHAR
 from .types import VARCHAR
+from .types import DOUBLE_PRECISION
 
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html
 # For Firebird version 4.0 and greater, the "...maximum identifier length is 63 characters
 # character set UTF8 (252 bytes)".
-max_identifier_length = 63
+MAX_IDENTIFIER_LENGTH = 63
 
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-reskeywords-reswords
 # This set is also good for Firebird version 5.0 Beta 1
@@ -267,7 +265,7 @@ RESERVED_WORDS = {
 }
 
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-datatypes-syntax-scalar
-ischema_names = {
+ISCHEMA_NAMES = {
     "SMALLINT": SMALLINT,
     "INT": INTEGER,
     "INTEGER": INTEGER,
@@ -275,8 +273,8 @@ ischema_names = {
     "INT128": BIGINT,  # TODO: INT128
     "REAL": REAL,
     "FLOAT": FLOAT,
-    "DOUBLE PRECISION": DOUBLE_PRECISION,
-    "DECFLOAT": FLOAT,  # TODO: DEFCLOAT
+    "DOUBLE PRECISION": FLOAT if version.parse(SQLALCHEMY_VERSION).major < 2 else DOUBLE_PRECISION,
+    "DECFLOAT": FLOAT,  # TODO: DECFLOAT
     "BOOLEAN": BOOLEAN,
     "DATE": DATE,
     "TIME": TIME,

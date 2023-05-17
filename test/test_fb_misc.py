@@ -19,12 +19,6 @@ class MiscTest(fixtures.TestBase):
     def test_strlen(self, connection):
         metadata = self.metadata
 
-        # On FB the length() function is implemented by an external UDF,
-        # strlen().  Various SA tests fail because they pass a parameter
-        # to it, and that does not work (it always results the maximum
-        # string length the UDF was declared to accept). This test
-        # checks that at least it works ok in other cases.
-
         t = Table(
             "t1",
             metadata,
@@ -40,16 +34,6 @@ class MiscTest(fixtures.TestBase):
             ).scalar(),
             1,
         )
-
-    def test_version_parsing(self):
-        for string, result in [
-            ("WI-V1.5.0.1234 Firebird 1.5", (1, 5, 1234, "firebird")),
-            ("UI-V6.3.2.18118 Firebird 2.1", (2, 1, 18118, "firebird")),
-            ("LI-V6.3.3.12981 Firebird 2.0", (2, 0, 12981, "firebird")),
-            ("WI-V8.1.1.333", (8, 1, 1, "interbase")),
-            ("WI-V8.1.1.333 Firebird 1.5", (1, 5, 333, "firebird")),
-        ]:
-            eq_(testing.db.dialect._parse_version_info(string), result)
 
     @testing.provide_metadata
     def test_rowcount_flag(self):

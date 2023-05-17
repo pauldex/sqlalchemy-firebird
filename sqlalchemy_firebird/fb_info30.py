@@ -1,14 +1,18 @@
 """Provide Firebird 3.0 specific information.
 
     Variables:
-        max_identifier_length -> int
+        MAX_IDENTIFIER_LENGTH -> int
         RESERVED_WORDS -> set
-        ischema_names -> dict
+        ISCHEMA_NAMES -> dict
 
 .._Firebird 3.0:
     https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html#fblangref30-intro
 
 """
+
+from packaging import version
+
+from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy.types import BIGINT
 from sqlalchemy.types import BLOB
 from sqlalchemy.types import BOOLEAN
@@ -20,21 +24,15 @@ from sqlalchemy.types import SMALLINT
 from sqlalchemy.types import TEXT
 from sqlalchemy.types import TIME
 from sqlalchemy.types import TIMESTAMP
-from sqlalchemy import __version__ as sqla_version
 
-if sqla_version < "2":
-    from sqlalchemy.types import (
-        FLOAT as DOUBLE_PRECISION,
-    )  # TODO: DOUBLE_PRECISION
-else:
-    from sqlalchemy.types import DOUBLE_PRECISION
 from .types import CHAR
 from .types import VARCHAR
+from .types import DOUBLE_PRECISION
 
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html
 # "Length cannot exceed 31 bytes.  Identifiers are stored in character set UNICODE_FSS, which means
 # characters outside the ASCII range are stored using 2 or 3 bytes."
-max_identifier_length = 31
+MAX_IDENTIFIER_LENGTH = 31
 
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html#fblangref30-appx03-reskeywords
 RESERVED_WORDS = {
@@ -168,7 +166,8 @@ RESERVED_WORDS = {
     "real",
     "record_version",
     "recreate",
-    "recursive references",
+    "recursive",
+	"references",
     "regr_avgx",
     "regr_avgy",
     "regr_count",
@@ -236,13 +235,13 @@ RESERVED_WORDS = {
 }
 
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html#fblangref30-datatypes-syntax
-ischema_names = {
+ISCHEMA_NAMES = {
     "SMALLINT": SMALLINT,
     "INT": INTEGER,
     "INTEGER": INTEGER,
     "BIGINT": BIGINT,
     "FLOAT": FLOAT,
-    "DOUBLE PRECISION": DOUBLE_PRECISION,
+    "DOUBLE PRECISION": FLOAT if version.parse(SQLALCHEMY_VERSION).major < 2 else DOUBLE_PRECISION,
     "BOOLEAN": BOOLEAN,
     "DATE": DATE,
     "TIME": TIME,

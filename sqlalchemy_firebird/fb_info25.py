@@ -1,15 +1,18 @@
 """Provide Firebird 2.5 specific information.
 
     Variables:
-        max_identifier_length -> int
+        MAX_IDENTIFIER_LENGTH -> int
         RESERVED_WORDS -> set
-        ischema_names -> dict
+        ISCHEMA_NAMES -> dict
 
 .._Firebird 2.5:
     https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-intro
 
 """
 
+from packaging import version
+
+from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy.types import BIGINT
 from sqlalchemy.types import BLOB
 from sqlalchemy.types import DATE
@@ -20,20 +23,14 @@ from sqlalchemy.types import SMALLINT
 from sqlalchemy.types import TEXT
 from sqlalchemy.types import TIME
 from sqlalchemy.types import TIMESTAMP
-from sqlalchemy import __version__ as sqla_version
 
-if sqla_version < "2":
-    from sqlalchemy.types import (
-        FLOAT as DOUBLE_PRECISION,
-    )  # TODO: DOUBLE_PRECISION
-else:
-    from sqlalchemy.types import DOUBLE_PRECISION
 from .types import CHAR
 from .types import VARCHAR
+from .types import DOUBLE_PRECISION
 
 # https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-datatypes
 # "Length cannot exceed 31 characters."
-max_identifier_length = 31
+MAX_IDENTIFIER_LENGTH = 31
 
 # https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-appx03-reskeywords
 # This set is for Firebird versions >= 2.5.1
@@ -211,13 +208,13 @@ RESERVED_WORDS = {
 }
 
 # https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-datatypes
-ischema_names = {
+ISCHEMA_NAMES = {
     "SMALLINT": SMALLINT,
     "INT": INTEGER,
     "INTEGER": INTEGER,
     "BIGINT": BIGINT,
     "FLOAT": FLOAT,
-    "DOUBLE PRECISION": DOUBLE_PRECISION,
+    "DOUBLE PRECISION": FLOAT if version.parse(SQLALCHEMY_VERSION).major < 2 else DOUBLE_PRECISION,
     "DATE": DATE,
     "TIME": TIME,
     "TIMESTAMP": TIMESTAMP,

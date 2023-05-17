@@ -20,8 +20,8 @@ from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL
 from sqlalchemy.testing import fixtures
 
-from sqlalchemy_firebird import fdb as firebird
-from sqlalchemy_firebird import base as fb_base
+import sqlalchemy_firebird.types as FbTypes
+
 from sqlalchemy_firebird.fdb import FBDialect_fdb
 
 
@@ -35,14 +35,6 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
             s,
             "SELECT sometable_1.col1, sometable_1.col2 "
             "FROM sometable AS sometable_1",
-        )
-        dialect = self.__dialect__
-        dialect._version_two = False
-        self.assert_compile(
-            s,
-            "SELECT sometable_1.col1, sometable_1.col2 "
-            "FROM sometable sometable_1",
-            dialect=dialect,
         )
 
     def test_varchar_raise(self):
@@ -129,7 +121,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         self.assert_compile(
             u,
             "UPDATE mytable SET name=:name RETURNING "
-            "char_length(mytable.name) AS length_1",
+            "CHAR_LENGTH(mytable.name) AS length_1",
         )
 
     def test_insert_returning(self):
@@ -164,23 +156,23 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         self.assert_compile(
             i,
             "INSERT INTO mytable (name) VALUES (:name) "
-            "RETURNING char_length(mytable.name) AS "
+            "RETURNING CHAR_LENGTH(mytable.name) AS "
             "length_1",
         )
 
     def test_charset(self):
-        """Exercise CHARACTER SET  options on string types."""
+        """Exercise CHARACTER SET options on string types."""
         columns = [
-            (fb_base.CHAR, [1], {}, "CHAR(1)"),
+            (FbTypes.CHAR, [1], {}, "CHAR(1)"),
             (
-                fb_base.CHAR,
+                FbTypes.CHAR,
                 [1],
                 {"charset": "OCTETS"},
                 "CHAR(1) CHARACTER SET OCTETS",
             ),
-            (fb_base.VARCHAR, [1], {}, "VARCHAR(1)"),
+            (FbTypes.VARCHAR, [1], {}, "VARCHAR(1)"),
             (
-                fb_base.VARCHAR,
+                FbTypes.VARCHAR,
                 [1],
                 {"charset": "OCTETS"},
                 "VARCHAR(1) CHARACTER SET OCTETS",
@@ -226,5 +218,5 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
             exc.CompileError,
             "Firebird computed columns do not support a persistence method",
             schema.CreateTable(t).compile,
-            dialect=firebird.dialect(),
+            dialect=self.__dialect__,
         )

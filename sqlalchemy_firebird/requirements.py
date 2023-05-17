@@ -3,177 +3,241 @@ from sqlalchemy.testing import exclusions
 
 
 class Requirements(SuiteRequirements):
+    def firebird_3_or_higher(self):
+        return exclusions.skip_if(
+            lambda config: config.db.dialect.server_version_info < (3,),
+            "Only supported in Firebird 3.0+.",
+        )
+
+    def firebird_4_or_higher(self):
+        return exclusions.skip_if(
+            lambda config: config.db.dialect.server_version_info < (4,),
+            "Only supported in Firebird 4.0+.",
+        )
+
+    #
+    # SuiteRequirements
+    #
+
+    # 69
     @property
-    def array_type(self):
-        # TODO:  implement Firebird ARRAY type - see visit_ARRAY in base.py
+    def foreign_keys_reflect_as_index(self):
+        # get_indexes does not returns FK indexes
         return exclusions.closed()
 
+    # 82
+    @property
+    def unique_constraints_reflect_as_index(self):
+        return exclusions.open()
+
+    # 174
+    @property
+    def implicitly_named_constraints(self):
+        return exclusions.open()
+
+    # 213
+    @property
+    def sql_expression_limit_offset(self):
+        # Firebird accepts expression with (non-standard) "ROWS m TO n" syntax.
+        return exclusions.open()
+
+    # 222
+    @property
+    def parens_in_union_contained_select_w_limit_offset(self):
+        return exclusions.closed()
+
+    # 234
+    @property
+    def parens_in_union_contained_select_wo_limit_offset(self):
+        return exclusions.closed()
+
+    # 260
+    @property
+    def nullsordering(self):
+        return exclusions.open()
+
+    # 291
+    @property
+    def window_functions(self):
+        return exclusions.open()
+
+    # 296
+    @property
+    def ctes(self):
+        return exclusions.open()
+
+    # 318
     @property
     def autoincrement_insert(self):
         return exclusions.closed()
 
     @property
-    def check_constraint_reflection(self):
-        # added
-        # return exclusions.open()
-        # TODO: fix 3 errors
+    def empty_inserts(self):
+        return self.firebird_4_or_higher()
+
+    # 488
+    @property
+    def implements_get_lastrowid(self):
+        # Firebird does not have a LAST ROWID function.
         return exclusions.closed()
 
+    # 532
+    @property
+    def views(self):
+        return exclusions.open()
+
+    # 551
+    @property
+    def foreign_key_constraint_name_reflection(self):
+        return exclusions.open()
+
+    # 637
+    @property
+    def reflects_pk_names(self):
+        # get_pk_constraint always returns "name": None.
+        return exclusions.closed()
+
+    # 654
     @property
     def comment_reflection(self):
         return exclusions.open()
 
+    # 659
     @property
-    def computed_columns(self):
-        """Supports computed columns"""
-        return exclusions.open()
+    def comment_reflection_full_unicode(self):
+        return self.firebird_4_or_higher()
 
-    @property
-    def ctes(self):
-        # added
-        # return exclusions.open()
-        # TODO: fix 14 errors
-        return exclusions.closed()
-
-    @property
-    def date_implicit_bound(self):
-        # added
-        return exclusions.closed()
-
-    @property
-    def datetime_implicit_bound(self):
-        # added
-        return exclusions.closed()
-
-    @property
-    def datetime_microseconds(self):
-        # Firebird does not support microseconds.
-        return exclusions.closed()
-
-    @property
-    def datetime_timezone(self):
-        # added
-        # Time zone support added in Firebird 4.
-        # return exclusions.skip_if("firebird<4")
-        # TODO:  fix 2 errors
-        return exclusions.closed()
-
-    @property
-    def duplicate_key_raises_integrity_error(self):
-        # Firebird fdb driver does not raises IntegrityError.
-        return exclusions.closed()
-
-    @property
-    def fetch_first(self):
-        # added
-        # return exclusions.open()
-        # TODO:  fix 3 errors
-        return exclusions.closed()
-
-    @property
-    def fetch_no_order_by(self):
-        # added
-        return exclusions.open()
-
-    @property
-    def fk_constraint_option_reflection_ondelete_noaction(self):
-        # added
-        # return exclusions.open()
-        # TODO:  fix 1 errors
-        return exclusions.closed()
-
-    @property
-    def floats_to_four_decimals(self):
-        # removed
-        # TODO: removing causes 1 error
-        return exclusions.closed()
-
-    @property
-    def foreign_key_constraint_name_reflection(self):
-        # added
-        return exclusions.open()
-
+    # 699
     @property
     def foreign_key_constraint_option_reflection_ondelete(self):
-        # added
-        # return exclusions.open()
-        # TODO:  fix 1 errors
-        return exclusions.closed()
+        return exclusions.open()
 
+    # 707
+    @property
+    def fk_constraint_option_reflection_ondelete_noaction(self):
+        return exclusions.open()
+
+    # 711
     @property
     def foreign_key_constraint_option_reflection_onupdate(self):
-        # added
-        # return exclusions.open()
-        # TODO:  fix 2 errors
-        return exclusions.closed()
+        return exclusions.open()
 
+    # 727
     @property
-    def foreign_keys_reflect_as_index(self):
-        # added
-        # get_indexes does not returns FK indexes
-        return exclusions.closed()
+    def temp_table_names(self):
+        return exclusions.open()
 
-    # TODO: adding causes 1 errors
-    # @property
-    # def get_order_by_collation(self, config):
-    #     # added
-    #     return "UTF8"
-
+    # 732
     @property
     def has_temp_table(self):
-        # added
         return exclusions.open()
 
+    # 737
     @property
-    def identity_columns(self):
-        # added
-        # Identity Column Type added in Firebird 3.
-        # return exclusions.skip_if("firebird<3")
-        # TODO:  fix 3 errors
-        return exclusions.closed()
-
-    @property
-    def implements_get_lastrowid(self):
-        # added
-        # Firebird does not have a LAST ROWID function.
-        return exclusions.closed()
-
-    @property
-    def implicitly_named_constraints(self):
-        """Target database supports constraints without an explicit name."""
+    def temporary_tables(self):
         return exclusions.open()
 
+    # 755
     @property
     def indexes_with_ascdesc(self):
         # Firebird does not support bidirectional indices.
         return exclusions.closed()
 
+    # 760
+    @property
+    def reflect_indexes_with_ascdesc(self):
+        # Firebird does not support bidirectional indices.
+        return exclusions.closed()
+
+    # 766
     @property
     def indexes_with_expressions(self):
-        # added
-        # return exclusions.open()
-        # TODO:  fix 1 errors
-        return exclusions.closed()
-
-    @property
-    def nullsordering(self):
-        # added
         return exclusions.open()
 
+    # 771
     @property
-    def order_by_col_from_union(self):
-        # added
-        # Firebird does not support ORDER BY alias in UNIONs.
+    def reflect_indexes_with_expressions(self):
+        return exclusions.open()
+
+    # 782
+    @property
+    def check_constraint_reflection(self):
+        return exclusions.open()
+
+    # 777
+    @property
+    def unique_constraint_reflection(self):
+        return exclusions.open()
+
+    # 787
+    @property
+    def duplicate_key_raises_integrity_error(self):
+        # Firebird fdb driver does not raises IntegrityError.
         return exclusions.closed()
 
+    # 795
     @property
-    def parens_in_union_contained_select_w_limit_offset(self):
+    def unbounded_varchar(self):
+        # Firebird requires a length for VARCHAR data types.
         return exclusions.closed()
 
+    # 810
     @property
-    def parens_in_union_contained_select_wo_limit_offset(self):
+    def unicode_data(self):
+        # assumes ?charset=UTF8 in connection URI
+        return exclusions.open()
+
+    # 819
+    @property
+    def unicode_ddl(self):
+        # assumes ?charset=UTF8 in connection URI
+        return exclusions.open()
+
+    # 847
+    @property
+    def datetime_timezone(self):
+        # Time zone support added in Firebird 4.
+        return self.firebird_4_or_higher()
+
+    # 862
+    @property
+    def date_implicit_bound(self):
         return exclusions.closed()
 
+    # 871
+    @property
+    def time_implicit_bound(self):
+        return exclusions.closed()
+
+    # 880
+    @property
+    def datetime_implicit_bound(self):
+        return exclusions.closed()
+
+    # 889
+    @property
+    def datetime_microseconds(self):
+        # Firebird does not support microseconds.
+        return exclusions.closed()
+
+    # 947
+    @property
+    def time_microseconds(self):
+        # Firebird does not support microseconds.
+        return exclusions.closed()
+
+    # 1106
+    @property
+    def precision_numerics_enotation_small(self):
+        return exclusions.open()
+
+    # 1112
+    @property
+    def precision_numerics_enotation_large(self):
+        # Increased maximum precision of NUMERIC and DECIMAL to 38 digits in Firebird 4.
+        return self.firebird_4_or_higher()
+
+    # 1199
     @property
     def precision_generic_float_type(self):
         # Firebird FLOAT does not ensure precision of 7 decimal digits after the decimal point.
@@ -182,134 +246,56 @@ class Requirements(SuiteRequirements):
         #   The FLOAT data type defaults to a 32-bit single precision floating-point type with an
         #   approximate precision of 7 decimal digits after the decimal point (24 binary digits).
         #   To ensure the safety of storage, rely on 6 decimal digits of precision.
+
         return exclusions.closed()
 
-    @property
-    def precision_numerics_enotation_large(self):
-        # added
-        # Increased maximum precision of NUMERIC and DECIMAL to 38 digits in Firebird 4.
-        # return exclusions.skip_if("firebird<4")
-        # TODO:  fix 2 errors
-        return exclusions.closed()
-
-    @property
-    def precision_numerics_enotation_small(self):
-        # added
-        return exclusions.open()
-
-    @property
-    def reflect_indexes_with_ascdesc(self):
-        # added
-        # Firebird does not support bidirectional indices.
-        return exclusions.closed()
-
-    @property
-    def reflect_indexes_with_expressions(self):
-        # added
-        return exclusions.open()
-
-    @property
-    def reflects_pk_names(self):
-        # added
-        # get_pk_constraint always returns "name": None.
-        return exclusions.closed()
-
-    @property
-    def regexp_match(self):
-        # added
-        return exclusions.closed()
-
-    @property
-    def sane_rowcount_w_returning(self):
-        # removed
-        # TODO: removing causes 2 errors
-        return exclusions.closed()
-
+    # 1274
     @property
     def savepoints(self):
-        # added
         return exclusions.open()
 
+    # 1330
     @property
-    def sql_expression_limit_offset(self):
-        # Firebird accepts expression with (non-standard) "ROWS m TO n" syntax.
-        # added
-        return exclusions.open()
-
-    @property
-    def temp_table_names(self):
-        return exclusions.open()
-
-    @property
-    def temporary_tables(self):
-        # added
-        return exclusions.open()
-
-    @property
-    def time_implicit_bound(self):
-        # added
+    def order_by_col_from_union(self):
+        # Firebird does not support ORDER BY alias in UNIONs.
         return exclusions.closed()
 
+    # 1365
+    def get_order_by_collation(self, config):
+        return "UTF8"
+
+    # 1580
     @property
-    def time_microseconds(self):
-        # Firebird does not support microseconds.
+    def computed_columns(self):
+        return exclusions.open()
+
+    # 1628
+    @property
+    def identity_columns(self):
+        # Identity Column Type added in Firebird 3.
+        return self.firebird_3_or_higher()
+
+    # 1642
+    @property
+    def regexp_match(self):
         return exclusions.closed()
 
-    # @property
-    # def tuple_in(self):
-    #     """Supports queries like:
-    #     SELECT some_table.id FROM some_table
-    #     WHERE (some_table.x, some_table.z) IN ((2, 'z2'), (3, 'z3'), (4, 'z4'))
+    # 1652
+    @property
+    def fetch_first(self):
+        return exclusions.open()
+
+    # 1667
+    @property
+    def fetch_no_order_by(self):
+        return exclusions.open()
+
     #
-    #     Firebird would have to change the query to something like:
-    #     SELECT some_table.id FROM some_table
-    #     WHERE (some_table.x = 2 and some_table.z = 'z2')
-    #        OR (some_table.x = 3 and some_table.z = 'z3')
-    #        OR (some_table.x = 4 and some_table.z = 'z4')
-    #     """  # noqa
-    #     # removed
-    #     # TODO: Research ways to support this in Firebird
-    #     return exclusions.closed()
+    # DefaultRequirements
+    #
 
+    # 1061
     @property
-    def unbounded_varchar(self):
-        # Firebird requires a length for VARCHAR data types.
+    def array_type(self):
+        # Firebird ARRAY type not implemented.
         return exclusions.closed()
-
-    @property
-    def unicode_data(self):
-        # assumes ?charset=UTF8 in connection URI
-        return exclusions.open()
-
-    @property
-    def unicode_ddl(self):
-        # assumes ?charset=UTF8 in connection URI
-        return exclusions.open()
-
-    @property
-    def unique_constraint_reflection(self):
-        # TODO: Research ways to support this in Firebird
-        # changed
-        # return exclusions.open()
-        # TODO:  fix 4 errors
-        return exclusions.closed()
-
-    @property
-    def unique_constraints_reflect_as_index(self):
-        # added
-        return exclusions.open()
-
-    @property
-    def uuid_data_type(self):
-        # Firebird does not have a native UUID data type.
-        return exclusions.closed()
-
-    @property
-    def views(self):
-        # added
-        return exclusions.open()
-
-    @property
-    def window_functions(self):
-        # added
-        return exclusions.open()
