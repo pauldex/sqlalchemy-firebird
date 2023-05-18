@@ -26,18 +26,22 @@ from sqlalchemy.testing.suite import (
 )
 
 import sys
+
 if sys.version_info.major == 2:
     try:
         from firebird.driver.types import get_timezone
     except ImportError:
-         def get_timezone(timezone=None):
+
+        def get_timezone(timezone=None):
             # TODO:  fdb version implementation
             pass
+
 else:
     try:
         from firebird.driver.types import get_timezone
     except ImportError as e:
-         def get_timezone(timezone=None):
+
+        def get_timezone(timezone=None):
             # TODO:  fdb version implementation
             pass
 
