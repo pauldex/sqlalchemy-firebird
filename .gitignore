@@ -13,3 +13,5 @@ test/__pycache__/
 readme.md
 /_venv1-3/
 /_venv1-4/
+
+.vscode/

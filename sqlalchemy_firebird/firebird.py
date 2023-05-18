@@ -4,6 +4,7 @@
     :dbapi: firebird-driver
     :connectstring: firebird+firebird://user:password@host:port/path/to/db[?key=value&key=value...]
     :url: https://pypi.org/project/firebird-driver/
+    :documentation: https://firebird-driver.readthedocs.io/en/latest/
 
     The firebird-driver package provides driver for Python 3.8+ and Firebird 3+. 
     This driver uses new Firebird OO API provided by fbclient library.
@@ -116,8 +117,11 @@ class FBDialect_firebird(FBDialect):
             dbapi_connection.commit()
 
     def _get_server_version_info(self, connection):
-        dbapi_connection = connection.connection.dbapi_connection if self.using_sqlalchemy2 \
-                           else connection.connection
+        dbapi_connection = (
+            connection.connection.dbapi_connection
+            if self.using_sqlalchemy2
+            else connection.connection
+        )
 
         minor, major = modf(dbapi_connection.info.engine_version)
         return (int(major), int(minor * 10))

@@ -25,7 +25,21 @@ from sqlalchemy.testing.suite import (
     SimpleUpdateDeleteTest as _SimpleUpdateDeleteTest,
 )
 
-from firebird.driver.types import get_timezone
+import sys
+if sys.version_info.major == 2:
+    try:
+        from firebird.driver.types import get_timezone
+    except ImportError:
+         def get_timezone(timezone=None):
+            # TODO:  fdb version implementation
+            pass
+else:
+    try:
+        from firebird.driver.types import get_timezone
+    except ImportError as e:
+         def get_timezone(timezone=None):
+            # TODO:  fdb version implementation
+            pass
 
 
 @pytest.mark.skip(

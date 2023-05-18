@@ -9,4 +9,4 @@ from . import base  # noqa
 from . import fdb  # noqa
 from . import provision  # noqa
 
-__version__ = "0.8.4"
+__version__ = "2.0.0"

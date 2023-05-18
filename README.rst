@@ -10,8 +10,7 @@ An external SQLAlchemy dialect for Firebird
 
 ----
 
-| This replaces SQLAlchemy's internal Firebird dialect which is not being maintained
- and will be removed in a future version.
+| This package provides a `Firebird <https://firebirdsql.org/en/start/>`_ dialect for `SQLAlchemy <https://www.sqlalchemy.org>`_ using the `firebird-driver <https://firebird-driver.readthedocs.io/en/latest>`_ and/or `fdb <https://fdb.readthedocs.io/en/latest>`_ driver.
 
 ****
 
@@ -20,6 +19,16 @@ An external SQLAlchemy dialect for Firebird
 ::
 
     pip install sqlalchemy-firebird
+
+|   (if using fdb)
+::
+
+    pip install fdb
+
+|   (if using firebird-driver)
+::
+
+    pip install firebird-driver
 
 |
 |  Connection URI samples for Firebird server installed on local machine using default port (3050):

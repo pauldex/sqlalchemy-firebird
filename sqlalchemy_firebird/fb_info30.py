@@ -167,7 +167,7 @@ RESERVED_WORDS = {
     "record_version",
     "recreate",
     "recursive",
-	"references",
+    "references",
     "regr_avgx",
     "regr_avgy",
     "regr_count",
@@ -241,7 +241,9 @@ ISCHEMA_NAMES = {
     "INTEGER": INTEGER,
     "BIGINT": BIGINT,
     "FLOAT": FLOAT,
-    "DOUBLE PRECISION": FLOAT if version.parse(SQLALCHEMY_VERSION).major < 2 else DOUBLE_PRECISION,
+    "DOUBLE PRECISION": FLOAT
+    if version.parse(SQLALCHEMY_VERSION).major < 2
+    else DOUBLE_PRECISION,
     "BOOLEAN": BOOLEAN,
     "DATE": DATE,
     "TIME": TIME,

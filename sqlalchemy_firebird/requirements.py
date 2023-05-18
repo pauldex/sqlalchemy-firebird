@@ -299,3 +299,9 @@ class Requirements(SuiteRequirements):
     def array_type(self):
         # Firebird ARRAY type not implemented.
         return exclusions.closed()
+
+    # 1993
+    @property
+    def uuid_data_type(self):
+        # Firebird does not have a native UUID data type.
+        return exclusions.closed()

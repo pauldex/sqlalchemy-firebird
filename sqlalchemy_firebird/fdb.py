@@ -4,7 +4,8 @@
     :dbapi: fdb
     :connectstring: firebird+fdb://user:password@host:port/path/to/db[?key=value&key=value...]
     :url: http://pypi.python.org/pypi/fdb/
-
+    :documentation: https://fdb.readthedocs.io/en/latest/
+    
     The FDB package provides legacy driver for Python 2 and 3, and Firebird 2.x and 3. 
     This driver uses classic Firebird API provided by fbclient library.
 """  # noqa
@@ -43,8 +44,11 @@ class FBDialect_fdb(FBDialect):
         return ([], opts)
 
     def _get_server_version_info(self, connection):
-        dbapi_connection = connection.connection.dbapi_connection if self.using_sqlalchemy2 \
-                           else connection.connection
+        dbapi_connection = (
+            connection.connection.dbapi_connection
+            if self.using_sqlalchemy2
+            else connection.connection
+        )
         minor, major = modf(dbapi_connection.engine_version)
         return (int(major), int(minor * 10))
 

@@ -18,6 +18,7 @@ from sqlalchemy.types import TEXT
 
 EXPRESSION_SEPARATOR = "||"
 
+
 class FBCompiler(sql.compiler.SQLCompiler):
     ansi_bind_rules = True
 
@@ -26,10 +27,12 @@ class FBCompiler(sql.compiler.SQLCompiler):
 
     def visit_sequence(self, sequence, **kw):
         return "GEN_ID(%s, 1)" % self.preparer.format_sequence(sequence)
-    
+
     def limit_clause(self, select, **kw):
-        return self._handle_limit_fetch_clause(None, select._offset_clause, select._limit_clause, **kw)
-    
+        return self._handle_limit_fetch_clause(
+            None, select._offset_clause, select._limit_clause, **kw
+        )
+
     def fetch_clause(
         self,
         select,
@@ -41,9 +44,13 @@ class FBCompiler(sql.compiler.SQLCompiler):
         if fetch_clause is None:
             fetch_clause = select._fetch_clause
 
-        return self._handle_limit_fetch_clause(fetch_clause, select._offset_clause, None, **kw)
-    
-    def _handle_limit_fetch_clause(self, fetch_clause, offset_clause, limit_clause, **kw):
+        return self._handle_limit_fetch_clause(
+            fetch_clause, select._offset_clause, None, **kw
+        )
+
+    def _handle_limit_fetch_clause(
+        self, fetch_clause, offset_clause, limit_clause, **kw
+    ):
         # Albeit non-standard, ROWS is a better choice than OFFSET / FETCH in Firebird since
         #   it is supported since Firebird 2.5 and it works with expressions.
         # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-dml-select-rows
@@ -51,10 +58,24 @@ class FBCompiler(sql.compiler.SQLCompiler):
 
         if (fetch_clause is not None) and (offset_clause is not None):
             # OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY  =>  ROWS 2 + 1 TO 2 + 5
-            text += " \n ROWS " + self.process(offset_clause, **kw) + " + 1 TO " + self.process(offset_clause, **kw) + " + " + self.process(fetch_clause, **kw)
+            text += (
+                " \n ROWS "
+                + self.process(offset_clause, **kw)
+                + " + 1 TO "
+                + self.process(offset_clause, **kw)
+                + " + "
+                + self.process(fetch_clause, **kw)
+            )
         elif (limit_clause is not None) and (offset_clause is not None):
             # LIMIT 5 OFFSET 2  =>  ROWS 2 + 1 TO 2 + 5
-            text += " \n ROWS " + self.process(offset_clause, **kw) + " + 1 TO " + self.process(offset_clause, **kw) + " + " + self.process(limit_clause, **kw)
+            text += (
+                " \n ROWS "
+                + self.process(offset_clause, **kw)
+                + " + 1 TO "
+                + self.process(offset_clause, **kw)
+                + " + "
+                + self.process(limit_clause, **kw)
+            )
         elif fetch_clause is not None:
             # FETCH NEXT 5 ROWS ONLY  =>  ROWS 1 TO 5
             text += " \n ROWS 1 TO " + self.process(fetch_clause, **kw)
@@ -63,7 +84,11 @@ class FBCompiler(sql.compiler.SQLCompiler):
             text += " \n ROWS 1 TO " + self.process(limit_clause, **kw)
         elif offset_clause is not None:
             # OFFSET 2 ROWS  =>  ROWS 2 + 1 TO 9223372036854775807
-            text += " \n ROWS " + self.process(offset_clause, **kw) + " + 1 TO 9223372036854775807"
+            text += (
+                " \n ROWS "
+                + self.process(offset_clause, **kw)
+                + " + 1 TO 9223372036854775807"
+            )
 
         return text
 
@@ -73,7 +98,7 @@ class FBCompiler(sql.compiler.SQLCompiler):
         if len(func.clauses.clauses) > 2:
             length = self.process(func.clauses.clauses[2])
             return f"SUBSTRING({s} FROM {start} FOR {length})"
-        
+
         return f"SUBSTRING({s} FROM {start})"
 
     def visit_truediv_binary(self, binary, operator, **kw):
@@ -106,11 +131,11 @@ class FBCompiler(sql.compiler.SQLCompiler):
 
     def default_from(self):
         return " FROM rdb$database"
-    
+
     def returning_clause(self, stmt, returning_cols, **kw):
         if self.dialect.using_sqlalchemy2:
             return super().returning_clause(stmt, returning_cols, **kw)
-        
+
         # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
         columns = [
             self._label_returning_column(stmt, c)
@@ -118,7 +143,7 @@ class FBCompiler(sql.compiler.SQLCompiler):
         ]
 
         return "RETURNING " + ", ".join(columns)
-    
+
 
 class FBDDLCompiler(sql.compiler.DDLCompiler):
     def get_column_specification(self, column, **kwargs):
@@ -128,9 +153,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         if isinstance(impl_type, sqltypes.TypeDecorator):
             impl_type = impl_type.impl
 
-        has_identity = (
-            column.identity is not None
-        )
+        has_identity = column.identity is not None
 
         if (
             column.primary_key
@@ -147,8 +170,11 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         ):
             colspec += " INTEGER GENERATED BY DEFAULT AS IDENTITY"
         else:
-            type_compiler_instance = self.dialect.type_compiler_instance if self.dialect.using_sqlalchemy2 \
-                                     else self.dialect.type_compiler
+            type_compiler_instance = (
+                self.dialect.type_compiler_instance
+                if self.dialect.using_sqlalchemy2
+                else self.dialect.type_compiler
+            )
 
             colspec += " " + type_compiler_instance.process(
                 column.type,
@@ -179,7 +205,9 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         self._verify_index_table(index)
 
         if index.name is None:
-            raise exc.CompileError("CREATE INDEX requires that the index have a name.")
+            raise exc.CompileError(
+                "CREATE INDEX requires that the index have a name."
+            )
 
         txt = "CREATE "
         if index.unique:
@@ -187,28 +215,40 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
 
         txt += "INDEX %s ON %s " % (
             self._prepared_index_name(index, include_schema=include_schema),
-            preparer.format_table(index.table, use_schema=include_table_schema),
+            preparer.format_table(
+                index.table, use_schema=include_table_schema
+            ),
         )
-        
-        if index.expressions is None:
-            raise exc.CompileError("CREATE INDEX requires at least one column or expression.")
 
-        first_expression = index.expressions[0] if len(index.expressions) > 0 else index.expressions
-        
+        if index.expressions is None:
+            raise exc.CompileError(
+                "CREATE INDEX requires at least one column or expression."
+            )
+
+        first_expression = (
+            index.expressions[0]
+            if len(index.expressions) > 0
+            else index.expressions
+        )
+
         if isinstance(first_expression, expression.ColumnClause):
             # INDEX on columns
             txt += ", ".join(
-                self.sql_compiler.process(expr, include_table=False, literal_binds=True)
+                self.sql_compiler.process(
+                    expr, include_table=False, literal_binds=True
+                )
                 for expr in index.expressions
             )
         else:
             # INDEX on expression
             txt += "COMPUTED BY (%s)" % EXPRESSION_SEPARATOR.join(
-                    self.sql_compiler.process(expr, include_table=False, literal_binds=True)
-                    for expr in index.expressions
+                self.sql_compiler.process(
+                    expr, include_table=False, literal_binds=True
                 )
+                for expr in index.expressions
+            )
         return txt
-    
+
     def post_create_table(self, table):
         table_opts = []
         fb_opts = table.dialect_options[self.dialect.name]
@@ -230,14 +270,18 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         return "GENERATED ALWAYS AS (%s)" % self.sql_compiler.process(
             generated.sqltext, include_table=False, literal_binds=True
         )
-    
+
     def get_identity_options(self, identity_options):
         txt = []
         if identity_options.start is not None:
             start = identity_options.start
             if self.dialect.server_version_info < (4,):
                 # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
-                start -= identity_options.increment if identity_options.increment is not None else 1
+                start -= (
+                    identity_options.increment
+                    if identity_options.increment is not None
+                    else 1
+                )
             txt.append("START WITH %d" % start)
 
         if identity_options.increment is not None:
@@ -250,7 +294,7 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_boolean(self, type_, **kw):
         if self.dialect.server_version_info < (3,):
             return self.visit_SMALLINT(type_, **kw)
-        
+
         return self.visit_BOOLEAN(type_, **kw)
 
     def visit_datetime(self, type_, **kw):
@@ -265,7 +309,11 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def _render_string_type(self, type_, name, length_override=None):
         text = name
 
-        length = length_override if length_override else getattr(type_, "length", None)
+        length = (
+            length_override
+            if length_override
+            else getattr(type_, "length", None)
+        )
         if length is not None:
             text += f"({length})"
 
@@ -276,7 +324,7 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
         collation = getattr(type_, "collation", None)
         if collation is not None:
             text += f" COLLATE {collation}"
-            
+
         return text
 
     def visit_VARCHAR(self, type_, **kw):
@@ -289,7 +337,7 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_TIMESTAMP(self, type_, **kw):
         if self.dialect.server_version_info < (4,):
             return super().visit_TIMESTAMP(type_, **kw)
-        
+
         return "TIMESTAMP%s %s" % (
             "(%d)" % type_.precision
             if getattr(type_, "precision", None) is not None
@@ -300,7 +348,7 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_TIME(self, type_, **kw):
         if self.dialect.server_version_info < (4,):
             return super().visit_TIME(type_, **kw)
-        
+
         return "TIME%s %s" % (
             "(%d)" % type_.precision
             if getattr(type_, "precision", None) is not None
@@ -310,7 +358,9 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
 
 
 class FBIdentifierPreparer(sql.compiler.IdentifierPreparer):
-    illegal_initial_characters = compiler.ILLEGAL_INITIAL_CHARACTERS.union(["_"])
+    illegal_initial_characters = compiler.ILLEGAL_INITIAL_CHARACTERS.union(
+        ["_"]
+    )
 
     def __init__(self, dialect):
         super().__init__(dialect, omit_schema=True)
@@ -350,7 +400,7 @@ class FBDialect(default.DefaultDialect):
     statement_compiler = FBCompiler
     ddl_compiler = FBDDLCompiler
     type_compiler_cls = FBTypeCompiler
-    type_compiler = FBTypeCompiler    # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
+    type_compiler = FBTypeCompiler  # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
     preparer = FBIdentifierPreparer
     execution_ctx_cls = FBExecutionContext
 
@@ -365,7 +415,7 @@ class FBDialect(default.DefaultDialect):
 
     construct_arguments = [
         (
-            sa_schema.Table, 
+            sa_schema.Table,
             {
                 "on_commit": None,
             },
@@ -373,7 +423,6 @@ class FBDialect(default.DefaultDialect):
     ]
 
     using_sqlalchemy2 = version.parse(SQLALCHEMY_VERSION).major >= 2
-
 
     def initialize(self, connection):
         super().initialize(connection)
@@ -383,13 +432,25 @@ class FBDialect(default.DefaultDialect):
             self.supports_identity_columns = False
             self.supports_native_boolean = False
 
-            from .fb_info25 import (MAX_IDENTIFIER_LENGTH, RESERVED_WORDS, ISCHEMA_NAMES)
+            from .fb_info25 import (
+                MAX_IDENTIFIER_LENGTH,
+                RESERVED_WORDS,
+                ISCHEMA_NAMES,
+            )
         elif self.server_version_info < (4,):
             # Firebird 3.0
-            from .fb_info30 import (MAX_IDENTIFIER_LENGTH, RESERVED_WORDS, ISCHEMA_NAMES)
+            from .fb_info30 import (
+                MAX_IDENTIFIER_LENGTH,
+                RESERVED_WORDS,
+                ISCHEMA_NAMES,
+            )
         else:
             # Firebird 4.0 or higher
-            from .fb_info40 import (MAX_IDENTIFIER_LENGTH, RESERVED_WORDS, ISCHEMA_NAMES)
+            from .fb_info40 import (
+                MAX_IDENTIFIER_LENGTH,
+                RESERVED_WORDS,
+                ISCHEMA_NAMES,
+            )
 
         self.max_identifier_length = MAX_IDENTIFIER_LENGTH
         self.preparer.reserved_words = RESERVED_WORDS
@@ -525,7 +586,7 @@ class FBDialect(default.DefaultDialect):
             ORDER BY r.rdb$field_position
         """
 
-        if is_firebird_25: 
+        if is_firebird_25:
             # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
             columns_query = """
                 SELECT TRIM(r.rdb$field_name) AS fname,
@@ -549,7 +610,7 @@ class FBDialect(default.DefaultDialect):
                 WHERE f.rdb$system_flag = 0
                   AND r.rdb$relation_name = ?
                 ORDER BY r.rdb$field_position
-            """ 
+            """
 
         tablename = self.denormalize_name(table_name)
         c = list(connection.exec_driver_sql(columns_query, (tablename,)))
@@ -591,12 +652,12 @@ class FBDialect(default.DefaultDialect):
                 )
                 defvalue = defexpr[8:].strip()
                 defvalue = defvalue if defvalue != "NULL" else None
-                   
+
             col_d = {
                 "name": name,
                 "type": coltype,
                 "nullable": not bool(row.null_flag),
-                "default": defvalue
+                "default": defvalue,
             }
 
             orig_colname = row.fname
@@ -613,7 +674,7 @@ class FBDialect(default.DefaultDialect):
                 col_d["identity"] = {
                     "always": row.identity_type == 0,
                     "start": row.identity_start,
-                    "increment": row.identity_increment
+                    "increment": row.identity_increment,
                 }
 
             if not self.using_sqlalchemy2:
@@ -624,11 +685,15 @@ class FBDialect(default.DefaultDialect):
 
         if cols:
             return cols
-        
+
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
-        
-        return reflection.ReflectionDefaults.columns() if self.using_sqlalchemy2 else []
+
+        return (
+            reflection.ReflectionDefaults.columns()
+            if self.using_sqlalchemy2
+            else []
+        )
 
     @reflection.cache
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
@@ -646,12 +711,16 @@ class FBDialect(default.DefaultDialect):
 
         pkfields = [self.normalize_name(r.fname) for r in c.fetchall()]
         if pkfields:
-            return { "constrained_columns": pkfields, "name": None }
-        
+            return {"constrained_columns": pkfields, "name": None}
+
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
 
-        return reflection.ReflectionDefaults.pk_constraint() if self.using_sqlalchemy2 else { "constrained_columns": [], "name": None }
+        return (
+            reflection.ReflectionDefaults.pk_constraint()
+            if self.using_sqlalchemy2
+            else {"constrained_columns": [], "name": None}
+        )
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
@@ -688,7 +757,7 @@ class FBDialect(default.DefaultDialect):
                 "referred_schema": None,
                 "referred_table": None,
                 "referred_columns": [],
-                "options": {}
+                "options": {},
             }
         )
 
@@ -700,19 +769,23 @@ class FBDialect(default.DefaultDialect):
                 fk["referred_table"] = self.normalize_name(row.targetrname)
             fk["constrained_columns"].append(self.normalize_name(row.fname))
             fk["referred_columns"].append(self.normalize_name(row.targetfname))
-            if row.update_rule not in ['NO ACTION', 'RESTRICT']:
+            if row.update_rule not in ["NO ACTION", "RESTRICT"]:
                 fk["options"]["onupdate"] = row.update_rule
-            if row.delete_rule not in ['NO ACTION', 'RESTRICT']:
+            if row.delete_rule not in ["NO ACTION", "RESTRICT"]:
                 fk["options"]["ondelete"] = row.delete_rule
 
         result = list(fks.values())
         if result:
             return result
-        
+
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
-        
-        return reflection.ReflectionDefaults.foreign_keys() if self.using_sqlalchemy2 else []
+
+        return (
+            reflection.ReflectionDefaults.foreign_keys()
+            if self.using_sqlalchemy2
+            else []
+        )
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
@@ -733,9 +806,11 @@ class FBDialect(default.DefaultDialect):
         """
         tablename = self.denormalize_name(table_name)
 
-        # Do not use connection.exec_driver_sql() here. 
+        # Do not use connection.exec_driver_sql() here.
         #    During tests we need to commit CREATE INDEX before this query. See provision.py listener.
-        c = connection.execute(text(indexes_query), { "relation_name": tablename })
+        c = connection.execute(
+            text(indexes_query), {"relation_name": tablename}
+        )
 
         indexes = util.defaultdict(dict)
         for row in c:
@@ -746,7 +821,9 @@ class FBDialect(default.DefaultDialect):
                 indexrec["dialect_options"] = {}
                 indexrec["unique"] = bool(row.unique_flag)
                 if row.expression_source is not None:
-                    expr = row.expression_source[1:-1]  # Remove outermost parenthesis added by Firebird
+                    expr = row.expression_source[
+                        1:-1
+                    ]  # Remove outermost parenthesis added by Firebird
                     indexrec["expressions"] = expr.split(EXPRESSION_SEPARATOR)
 
             indexrec["column_names"].append(
@@ -759,8 +836,10 @@ class FBDialect(default.DefaultDialect):
                 FROM rdb$relation_fields r
                 WHERE r.rdb$relation_name = ?
             """
-            return {self.normalize_name(row.fname)
-                    for row in connection.exec_driver_sql(colqry, (tablename,))}
+            return {
+                self.normalize_name(row.fname)
+                for row in connection.exec_driver_sql(colqry, (tablename,))
+            }
 
         def _adjust_column_names_for_expressions(result, tablename):
             # Identify which expression elements are columns
@@ -768,8 +847,10 @@ class FBDialect(default.DefaultDialect):
             for i in result:
                 expr = i.get("expressions")
                 if expr is not None:
-                    i["column_names"] = [x if self.normalize_name(x) in colset else None
-                                         for x in expr]
+                    i["column_names"] = [
+                        x if self.normalize_name(x) in colset else None
+                        for x in expr
+                    ]
             return result
 
         result = list(indexes.values())
@@ -779,10 +860,16 @@ class FBDialect(default.DefaultDialect):
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
 
-        return reflection.ReflectionDefaults.indexes() if self.using_sqlalchemy2 else []
+        return (
+            reflection.ReflectionDefaults.indexes()
+            if self.using_sqlalchemy2
+            else []
+        )
 
     @reflection.cache
-    def get_unique_constraints(self, connection, table_name, schema=None, **kw):
+    def get_unique_constraints(
+        self, connection, table_name, schema=None, **kw
+    ):
         unique_constraints_query = """
             SELECT TRIM(rc.rdb$constraint_name) AS cname,
                    TRIM(se.rdb$field_name) AS column_name
@@ -799,12 +886,7 @@ class FBDialect(default.DefaultDialect):
         tablename = self.denormalize_name(table_name)
         c = connection.exec_driver_sql(unique_constraints_query, (tablename,))
 
-        ucs = util.defaultdict(
-            lambda: {
-                "name": None,
-                "column_names": []
-            }
-        )
+        ucs = util.defaultdict(lambda: {"name": None, "column_names": []})
 
         for row in c:
             cname = self.normalize_name(row.cname)
@@ -816,11 +898,15 @@ class FBDialect(default.DefaultDialect):
         result = list(ucs.values())
         if result:
             return result
-        
+
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
-        
-        return reflection.ReflectionDefaults.unique_constraints() if self.using_sqlalchemy2 else []
+
+        return (
+            reflection.ReflectionDefaults.unique_constraints()
+            if self.using_sqlalchemy2
+            else []
+        )
 
     @reflection.cache
     def get_table_comment(self, connection, table_name, schema=None, **kw):
@@ -829,12 +915,12 @@ class FBDialect(default.DefaultDialect):
             FROM rdb$relations
             WHERE rdb$relation_name = ?
         """
-        tablename = self.denormalize_name(table_name)        
+        tablename = self.denormalize_name(table_name)
         c = connection.exec_driver_sql(table_comment_query, (tablename,))
-        
+
         row = c.fetchone()
         if row:
-            return { "text": row[0] }
+            return {"text": row[0]}
 
         raise exc.NoSuchTableError(table_name)
 
@@ -876,8 +962,12 @@ class FBDialect(default.DefaultDialect):
 
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
-                
-        return reflection.ReflectionDefaults.check_constraints() if self.using_sqlalchemy2 else []
+
+        return (
+            reflection.ReflectionDefaults.check_constraints()
+            if self.using_sqlalchemy2
+            else []
+        )
 
     def is_disconnect(self, e, connection, cursor):
         if isinstance(
