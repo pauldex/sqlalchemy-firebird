@@ -15,8 +15,6 @@ from math import modf
 from sqlalchemy import util
 from .base import FBDialect
 
-import fdb
-
 
 class FBDialect_fdb(FBDialect):
     name = "firebird.fdb"
@@ -26,11 +24,11 @@ class FBDialect_fdb(FBDialect):
     @classmethod
     def dbapi(cls):
         # For SQLAlchemy 1.4 compatibility only. Deprecated in 2.0.
-        return fdb
+        return __import__("fdb")
 
     @classmethod
     def import_dbapi(cls):
-        return fdb
+        return __import__("fdb")
 
     def create_connect_args(self, url):
         opts = url.translate_connect_args(username="user")
