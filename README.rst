@@ -20,26 +20,39 @@ An external SQLAlchemy dialect for Firebird
 
     pip install sqlalchemy-firebird
 
-|   (if using fdb)
-::
+If you are using Python 3.8 or greater, SQLAlchemy 2.0+ and firebird-driver will be automatically installed.
+Python 3.6 and 3.7 will automatically install and use SQLAlchemy < 2.0 and fdb instead.
 
-    pip install fdb
-
-|   (if using firebird-driver)
-::
-
-    pip install firebird-driver
-
-|
-|  Connection URI samples for Firebird server installed on local machine using default port (3050):
+Connection URI samples for Firebird server installed on local machine using default port (3050):
 
 ::
 
     [Linux]
-    firebird://username:password@localhost///home/paulgd/projects/databases/my_project.fdb
+    # Use the fdb driver (Python 3.6/3.7)
+    firebird+fdb://username:password@localhost///home/testuser/projects/databases/my_project.fdb
+    # Use the firebird-driver driver (Python 3.8+)
+    firebird+firebird://username:password@localhost///home/testuser/projects/databases/my_project.fdb
 
     [Windows]
-    firebird://username:password@localhost/c:/projects/databases/my_project.fdb
+    # Use the fdb driver (Python 3.6/3.7)
+    firebird+fdb://username:password@localhost/c:/projects/databases/my_project.fdb
+    # Use the firebird-driver driver (Python 3.8+)
+    firebird+firebird://username:password@localhost/c:/projects/databases/my_project.fdb
+
+****
+
+**Usage**
+
+For example, to connect to a Firebird server installed on a local Windows machine using the default port and firebird-driver:
+
+::
+
+    db_uri = "firebird+firebird://username:password@localhost/c:/projects/databases/my_project.fdb"
+    from sqlalchemy import create_engine
+    engine = create_engine(db_uri, echo=True)
+
+Connecting to different types of Firebird servers, databases, or drivers is done simply by changing the db_uri string
+used in the call to create_engine.
 
 ----
 

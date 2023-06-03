@@ -19,6 +19,7 @@ setup(
     version=VERSION,
     description="Firebird for SQLAlchemy",
     long_description=open(readme).read(),
+    long_description_content_type="text/x-rst",
     url="https://github.com/pauldex/sqlalchemy-firebird",
     author="Paul Graves-DesLauriers",
     author_email="paul@dexmicro.com",
@@ -45,7 +46,12 @@ setup(
     },
     packages=find_packages(include=["sqlalchemy_firebird"]),
     include_package_data=True,
-    install_requires=["SQLAlchemy>=1.4"],
+    install_requires=[
+        "SQLAlchemy >= 1.4, < 2.0; python_version < '3.8'",
+        "fdb; python_version < '3.8'",
+        "SQLAlchemy >= 2.0; python_version >= '3.8'",
+        "firebird-driver; python_version >= '3.8'",
+],
     zip_safe=False,
     entry_points={
         "sqlalchemy.dialects": [
