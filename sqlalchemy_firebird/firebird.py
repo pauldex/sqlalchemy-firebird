@@ -101,9 +101,28 @@ class FBDialect_firebird(FBDialect):
             driver_config.fb_client_library.value = qry["fb_client_library"]
             qry = remove_keys(qry, {"fb_client_library"})
 
-        if opts.get("port"):
-            opts["host"] = "%s/%s" % (opts["host"], opts["port"])
-            del opts["port"]
+        if opts.get("host"):
+            host_name = opts["host"]
+            database_name = opts["database"]
+
+            port_number = "3050"
+            if opts.get("port") is not None:
+                port_number = opts["port"]
+                del opts["port"]
+
+            cfg_driver_server = driver_config.get_server(host_name)
+            if cfg_driver_server is None:
+                cfg_driver_server = driver_config.register_server(host_name)
+            cfg_driver_server.host.value = host_name
+            cfg_driver_server.port.value = port_number
+
+            cfg_driver_database = driver_config.get_database(database_name)
+            if cfg_driver_database is None:
+                cfg_driver_database = driver_config.register_database(database_name)
+            cfg_driver_database.server.value = host_name
+            cfg_driver_database.database.value = opts["database"]
+
+            del opts["host"]
 
         opts.update(qry)
         return ([], opts)
