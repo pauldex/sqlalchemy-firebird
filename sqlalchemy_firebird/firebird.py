@@ -107,7 +107,7 @@ class FBDialect_firebird(FBDialect):
 
             port_number = "3050"
             if opts.get("port") is not None:
-                port_number = opts["port"]
+                port_number = str(opts["port"])
                 del opts["port"]
 
             cfg_driver_server = driver_config.get_server(host_name)

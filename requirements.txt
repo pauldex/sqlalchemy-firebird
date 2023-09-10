@@ -1,1 +1,4 @@
-SQLAlchemy>=1.4
+SQLAlchemy>=1.4, <2.0;  python_version < '3.8'
+fdb;  python_version < '3.8'
+SQLAlchemy>=2.0;  python_version >= '3.8'
+firebird-driver;  python_version >= '3.8'

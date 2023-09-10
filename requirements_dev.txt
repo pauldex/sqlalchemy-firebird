@@ -1,3 +1,5 @@
--r requirements.txt
-pytest
+-r requirements_test.txt
 black
+flake8
+build
+twine
