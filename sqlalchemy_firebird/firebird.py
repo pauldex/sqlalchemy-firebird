@@ -118,7 +118,9 @@ class FBDialect_firebird(FBDialect):
 
             cfg_driver_database = driver_config.get_database(database_name)
             if cfg_driver_database is None:
-                cfg_driver_database = driver_config.register_database(database_name)
+                cfg_driver_database = driver_config.register_database(
+                    database_name
+                )
             cfg_driver_database.server.value = host_name
             cfg_driver_database.database.value = opts["database"]
 
