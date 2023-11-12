@@ -54,6 +54,7 @@ dependencies = [
     "fdb; python_version < '3.8'",
     "SQLAlchemy >= 2.0; python_version >= '3.8'",
     "firebird-driver; python_version >= '3.8'",
+    "packaging",
 ]
 dynamic = ["readme", "version"]
 
