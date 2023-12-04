@@ -10,46 +10,127 @@ An external SQLAlchemy dialect for Firebird
 
 ----
 
-| This package provides a `Firebird <https://firebirdsql.org/en/start/>`_ dialect for `SQLAlchemy <https://www.sqlalchemy.org>`_ using the `firebird-driver <https://firebird-driver.readthedocs.io/en/latest>`_ and/or `fdb <https://fdb.readthedocs.io/en/latest>`_ driver.
+| Those who want to use the open source `Firebird <https://firebirdsql.org/en/start/>`_ database server with `Python <https://www.python.org>`_ using `SQLAlchemy <https://www.sqlalchemy.org>`_ need to provide a dialect that SQLAlchemy can use to communicate to the database, because Firebird is not among the included dialects.
+This package provides a Firebird dialect for SQLAlchemy using the Python Database API 2.0 compliant support provided from  either `firebird-driver <https://firebird-driver.readthedocs.io/en/latest>`_ or `fdb <https://fdb.readthedocs.io/en/latest>`_.
 
-****
+----
 
 **Installation**
 
-::
+The pip command to install the sqlalchemy-firebird package is::
 
     pip install sqlalchemy-firebird
 
-If you are using Python 3.8 or greater, SQLAlchemy 2.0+ and firebird-driver will be automatically installed.
-Python 3.6 and 3.7 will automatically install and use SQLAlchemy < 2.0 and fdb instead.
+If you are using Python 3.8+, installing sqlalchemy-firebird will automatically install SQLAlchemy 2.0+ and firebird-driver.  This configuration can be used to access Firebird server versions 3 and up.  If you need to access a Firebird version 2.5 server, just install fdb using pip::
 
-Connection URI samples for Firebird server installed on local machine using default port (3050):
+    pip install fdb
+
+If you are using a version of Python less than 3.8, SQLAlchemy 1.4+ and fdb are automatically installed, which can only be used for Firebird server versions 2.5.9 and 3.0+.
+
+----
+
+**Getting Started**
+
+The first thing you need when connecting your application to the database using SQLAlchemy is an engine object, obtained by calling *create_engine* with the appropriate parameters.  This can be a connection string (also known as a database uniform resource identifier/locator, *dburi* or *dburl* for short), or the URL object returned by calling *create* from sqlalchemy.engine.URL.
+
+The following information is needed to make the connection string:
+
+- <driver_name> - which driver to use; 'firebird' to use firebird-driver, or 'fdb' to use the fdb driver
+- <username> - Firebird default is 'sysdba'
+- <password> - Firebird default is 'masterkey'
+- <host> - the location of the database server
+- <port> - Firebird default is '3050'
+- <database_path> - location of the database file
+- <charset> - character set used by the database file, Firebird default is UTF8
+- <client_library_path> - path to the firebird client library file.  Linux needs 'fbclient.so', Windows uses fblient.dll.  This is only needed when using the embedded server or a remotely installed server.
+
+Connection Strings
+
+A typical connection string for SQLAlchemy is *dialect+driver://username:password@host:port/database*.
+
+The template for a Firebird connection string looks like this (using the information listed above):
+::
+
+    firebird+<driver_name>://<username>:<password>@<host>:<port>/<database_path>[?charset=UTF8&key=value&key=value...]
+
+Example connection strings from a configuration file:
+
+- Firebird server installed locally using the default port
 
 ::
 
     [Linux]
-    # Use the fdb driver (Python 3.6/3.7)
-    firebird+fdb://username:password@localhost///home/testuser/projects/databases/my_project.fdb
-    # Use the firebird-driver driver (Python 3.8+)
-    firebird+firebird://username:password@localhost///home/testuser/projects/databases/my_project.fdb
+    # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
+    firebird+fdb://sysdba:masterkey@localhost///home/testuser/projects/databases/my_project.fdb
+    # Use the firebird-driver driver (Python 3.8+, Firebird server 3.0 or greater)
+    firebird+firebird://sysdba:masterkey@localhost///home/testuser/projects/databases/my_project.fdb
 
     [Windows]
-    # Use the fdb driver (Python 3.6/3.7)
-    firebird+fdb://username:password@localhost/c:/projects/databases/my_project.fdb
-    # Use the firebird-driver driver (Python 3.8+)
-    firebird+firebird://username:password@localhost/c:/projects/databases/my_project.fdb
+    # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
+    firebird+fdb://sysdba:masterkey@localhost/c:/projects/databases/my_project.fdb
+    # Use the firebird-driver driver (Python 3.8+, Firebird server 3.0 or greater)
+    firebird+firebird://sysdba:masterkey@localhost/c:/projects/databases/my_project.fdb
 
-****
-
-**Usage**
-
-For example, to connect to a Firebird server installed on a local Windows machine using the default port and firebird-driver:
+- Firebird server installed locally using port 3040
 
 ::
 
-    db_uri = "firebird+firebird://username:password@localhost/c:/projects/databases/my_project.fdb"
+    [Linux]
+    # Use the firebird-driver driver (Python 3.8+)
+    firebird+firebird://sysdba:masterkey@localhost:3040///home/testuser/projects/databases/my_project.fdb
+
+    [Windows]
+    # Use the firebird-driver driver (Python 3.8+)
+    firebird+firebird://sysdba:masterkey@localhost:3040/c:/projects/databases/my_project.fdb
+
+- Firebird server installed remotely using port 3040 and specifying the character set to use
+
+::
+
+    [Linux]
+    # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
+    firebird+fdb://sysdba:masterkey@localhost:3040///home/testuser/databases/my_project.fdb?charset=UTF8&fb_library_name=//home/testuser/dbclient/fbclient.so
+    # Use the firebird-driver driver (Python 3.8+)
+    firebird+firebird://sysdba:masterkey@localhost:3040///home/testuser/databases/my_project.fdb?charset=UTF8&fb_client_library=//home/testuser/dbclient/fbclient.so
+
+    [Windows]
+    # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
+    firebird+fdb://sysdba:masterkey@localhost:3040/c:/projects/databases/my_project.fdb?charset=UTF8&fb_library_name=c:/projects/dbclient/fbclient.dll
+    # Use the firebird-driver driver (Python 3.8+)
+    firebird+firebird://sysdba:masterkey@localhost:3040/c:/projects/databases/my_project.fdb?charset=UTF8&fb_client_library=c:/projects/dbclient/fbclient.dll
+
+- Firebird embedded server specifying the character set to use
+
+::
+
+    [Linux]
+    # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
+    firebird+fdb://sysdba@///home/testuser/databases/my_project.fdb?charset=UTF8&fb_library_name=//home/testuser/dbserver/fbclient.so
+    # Use the firebird-driver driver (Python 3.8+)
+    firebird+firebird://sysdba@///home/testuser/databases/my_project.fdb?charset=UTF8&fb_client_library=//home/testuser/dbserver/fbclient.so
+
+    [Windows]
+    # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
+    firebird+fdb://sysdba@/c:/projects/databases/my_project.fdb?charset=UTF8&fb_library_name=c:/projects/dbserver/fbclient.dll
+    # Use the firebird-driver driver (Python 3.8+)
+    firebird+firebird://sysdba@/c:/projects/databases/my_project.fdb?charset=UTF8&fb_client_library=c:/projects/dbserver/fbclient.dll
+
+
+----
+
+**How to use**
+
+For example, to connect to an embedded Firebird server using firebird-driver:
+
+::
+
+    db_uri = "firebird+firebird://sysdba@/c:/projects/databases/my_project.fdb?charset=UTF8&fb_client_library=c:/projects/databases/fb40_svr/fbclient.dll"
     from sqlalchemy import create_engine
     engine = create_engine(db_uri, echo=True)
+    
+    # force the engine to connect, revealing any problems with the connection string
+    with engine.begin():
+        pass
 
 Connecting to different types of Firebird servers, databases, or drivers is done simply by changing the db_uri string
 used in the call to create_engine.
