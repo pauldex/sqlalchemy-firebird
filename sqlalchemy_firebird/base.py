@@ -617,7 +617,8 @@ class FBDialect(default.DefaultDialect):
 
         cols = []
         for row in c:
-            name = self.normalize_name(row.fname)
+            orig_colname = row.fname
+            colname = self.normalize_name(orig_colname)
 
             # Extract data type
             colspec = row.ftype.rstrip()
@@ -625,7 +626,7 @@ class FBDialect(default.DefaultDialect):
             if coltype is None:
                 util.warn(
                     "Did not recognize type '%s' of column '%s'"
-                    % (colspec, name)
+                    % (colspec, colname)
                 )
                 coltype = sqltypes.NULLTYPE
             elif issubclass(coltype, Integer) and row.fprec != 0:
@@ -654,13 +655,12 @@ class FBDialect(default.DefaultDialect):
                 defvalue = defvalue if defvalue != "NULL" else None
 
             col_d = {
-                "name": name,
+                "name": colname,
                 "type": coltype,
                 "nullable": not bool(row.null_flag),
                 "default": defvalue,
             }
 
-            orig_colname = row.fname
             if orig_colname.lower() == orig_colname:
                 col_d["quote"] = True
 
