@@ -970,18 +970,15 @@ class FBDialect(default.DefaultDialect):
         )
 
     def is_disconnect(self, e, connection, cursor):
-        if isinstance(
-            e, (self.dbapi.OperationalError, self.dbapi.ProgrammingError)
-        ):
-            # TODO: Review these messages for Firebird 3+
-            for msg in (
-                "Error writing data to the connection",
-                "Unable to complete network request to host",
-                "Invalid connection state",
-                "Invalid cursor state",
-                "connection shutdown",
-            ):
-                if msg in str(e):
-                    return True
+        is_fdb = self.driver == "fdb"
+        if isinstance(e, (self.dbapi.DatabaseError)):
+            sqlcode = e.args[1] if is_fdb else e.sqlcode
+            gdscode = e.args[2] if is_fdb else e.gds_codes[0]
+            return sqlcode == -902 and gdscode in (
+                335544726,  # net_read_err     Error reading data from the connection
+                335544727,  # net_write_err    Error writing data to the connection
+                335544721,  # network_error    Unable to complete network request to host "@1"
+                335544856,  # att_shutdown     Connection shutdown
+            )
 
         return False
