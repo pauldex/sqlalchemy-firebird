@@ -7,8 +7,6 @@ from sqlalchemy.testing import fixtures
 
 
 class TypesTest(fixtures.TestBase):
-    __only_on__ = "firebird"
-
     @testing.provide_metadata
     def test_infinite_float(self, connection):
         metadata = self.metadata
