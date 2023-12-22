@@ -272,8 +272,6 @@ class Requirements(SuiteRequirements):
     # 1628
     @property
     def identity_columns(self):
-        # Identity Column Type added in Firebird 3.
-        # However, GENERATED ALWAYS is only supported in Firebird 4.0
         return self.firebird_3_or_higher()
 
     @property
@@ -310,3 +308,17 @@ class Requirements(SuiteRequirements):
     def uuid_data_type(self):
         # Firebird does not have a native UUID data type.
         return exclusions.closed()
+
+    #
+    # Workarounds for Firebird 2.5/fdb
+    #
+
+    @property
+    def autoincrement_without_sequence(self):
+        # Disables entire IdentityAutoincrementTest on Firebird 2.5 (does not have autoincrement)
+        return self.firebird_3_or_higher()
+
+    @property
+    def insert_from_select(self):
+        # Avoids hanging tests on Firebird 2.5
+        return self.firebird_3_or_higher()

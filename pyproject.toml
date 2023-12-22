@@ -3,7 +3,6 @@ addopts = "--tb native -v -r fxX --maxfail=100 -p no:warnings --log-info=sqlalch
 
 markers = [
     "backend: mark test as for the backend",
-    "hanging: tests hanging during a full test suite run",
 ]
 
 python_files = "test/*test_*.py"

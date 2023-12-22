@@ -82,29 +82,8 @@ $extraArgs = @(
 # Set console width in chars
 [console]::WindowWidth=300
 
-if ($db.StartsWith('fdb')) {
-    # Some tests hangs when using 'fdb' driver. These tests are marked with "hanging" pytest mark.
-
-    # Run "not hanging" tests first
-    $host.ui.RawUI.WindowTitle = "[$db]: (Running 1st pass...)"
-    & pytest $launchArgs --db $db -m "not hanging" $extraArgs 2>$null | Tee-Object -Variable testOutput
-    $pytestExitCode = $LASTEXITCODE
-    $summary1st = $testOutput[-1] -replace '\x1b\[\d+(;\d+)?m' -replace '='    # strip colors and '='
-    $host.ui.RawUI.WindowTitle = "[$db]: 1st: $summary1st (exit code = $pytestExitCode)"
-
-    if ($pytestExitCode -eq 0) {
-        # Tests passed. Run "hanging" tests.
-        $host.ui.RawUI.WindowTitle = "[$db]: 1st: $summary1st / (Running 2nd pass...)"        
-        & pytest $launchArgs --db $db -m "hanging" $extraArgs 2>$null | Tee-Object -Variable testOutput
-        $pytestExitCode = $LASTEXITCODE
-        $summary2nd = $testOutput[-1] -replace '\x1b\[\d+(;\d+)?m' -replace '='    # strip colors and '='
-        $host.ui.RawUI.WindowTitle = "[$db]: 1st: $summary1st / 2nd: $summary2nd (exit code = $pytestExitCode)"
-    }
-} else {
-    # Tests with 'firebird' driver.
-    $host.ui.RawUI.WindowTitle = "[$db]: (Running...)"
-    & pytest $launchArgs --db $db $extraArgs 2>$null | Tee-Object -Variable testOutput
-    $pytestExitCode = $LASTEXITCODE
-    $summary1st = $testOutput[-1] -replace '\x1b\[\d+(;\d+)?m' -replace '='    # strip colors and '='
-    $host.ui.RawUI.WindowTitle = "[$db]: $summary1st (exit code = $pytestExitCode)"
-}
+$host.ui.RawUI.WindowTitle = "[$db]: (Running...)"
+& pytest $launchArgs --db $db $extraArgs 2>$null | Tee-Object -Variable testOutput
+$pytestExitCode = $LASTEXITCODE
+$summary1st = $testOutput[-1] -replace '\x1b\[\d+(;\d+)?m' -replace '='    # strip colors and '='
+$host.ui.RawUI.WindowTitle = "[$db]: $summary1st (exit code = $pytestExitCode)"

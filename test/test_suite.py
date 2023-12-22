@@ -340,10 +340,6 @@ class IdentityReflectionTest(_IdentityReflectionTest):
             ),
         )
 
-    @testing.skip_if(
-        lambda config: config.db.dialect.server_version_info < (3,),
-        "GENERATED ... AS IDENTITY columns are supported only in Firebird 3.0+",
-    )
     def test_reflect_identity(self):
         firebird_4_or_higher = config.db.dialect.server_version_info >= (4,)
 
@@ -417,25 +413,7 @@ class StringTest(_StringTest):
         )
 
 
-#
-# Hanging tests. Run separately with "pytest -m hanging".
-#
 class InsertBehaviorTest(_InsertBehaviorTest):
-    @pytest.mark.hanging(reason="This test hangs in Firebird 2.5")
-    def test_insert_from_select(self, connection):
-        super().test_insert_from_select(connection)
-
-    @pytest.mark.hanging(reason="This test hangs in Firebird 2.5")
-    def test_insert_from_select_with_defaults(self, connection):
-        super().test_insert_from_select_with_defaults(connection)
-
-    @testing.skip_if(
-        lambda config: config.db.dialect.server_version_info < (3,),
-        "IDENTITY columns are supported only in Firebird 3.0+.",
-    )
-    def test_insert_from_select_autoinc(self, connection):
-        super().test_insert_from_select_autoinc(connection)
-
     @testing.skip_if(
         lambda config: config.db.dialect.driver == "fdb",
         "Driver fdb returns erroneous 'returns_rows = True'.",
@@ -449,22 +427,12 @@ class InsertBehaviorTest(_InsertBehaviorTest):
             connection, style, executemany
         )
 
-
-class NumericTest(_NumericTest):
-    @pytest.mark.hanging(
-        reason="This test hangs in Firebird 4.0 with fdb",
-    )
-    def test_enotation_decimal_large(self, do_numeric_test):
-        super().test_enotation_decimal_large(do_numeric_test)
+    @requirements.autoincrement_insert  # missing in SQLAlchemy
+    def test_autoclose_on_insert_implicit_returning(self, connection):
+        super().test_autoclose_on_insert_implicit_returning(connection)
 
 
 class RowCountTest(_RowCountTest):
-    @pytest.mark.hanging(
-        reason="This test hangs in Firebird 4.0 with fdb and SQLALchemy 2.0+",
-    )
-    def test_update_rowcount2(self, connection):
-        super().test_update_rowcount2(connection)
-
     @testing.skip_if(
         lambda config: config.db.dialect.server_version_info < (5,),
         "Multiple rows UPDATE/DELETE RETURNING are supported only in Firebird 5.0+",
@@ -503,6 +471,3 @@ class SimpleUpdateDeleteTest(_SimpleUpdateDeleteTest):
     @testing.requires.delete_returning
     def test_delete_returning(self, connection, criteria):
         super().test_delete_returning(connection, criteria)
-
-
-# ToDo: How to skip SequenceTest (from sqlalchemy/test/sql/test_sequences.py) only on Firebird 2.5?
