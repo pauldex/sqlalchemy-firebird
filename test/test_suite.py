@@ -342,8 +342,6 @@ class IdentityReflectionTest(_IdentityReflectionTest):
 
 # Firebird-driver needs special time zone handling.
 #   https://github.com/FirebirdSQL/python3-driver/issues/19#issuecomment-1523045743
-
-
 class DateTimeTZTest(_DateTimeTZTest):
     data = datetime.datetime(
         2012, 10, 15, 12, 57, 18, tzinfo=get_timezone("UTC")
@@ -369,8 +367,6 @@ class StringTest(_StringTest):
 #
 # Hanging tests. Run separately with "pytest -m hanging".
 #
-
-
 class InsertBehaviorTest(_InsertBehaviorTest):
     @pytest.mark.hanging(reason="This test hangs in Firebird 2.5")
     def test_insert_from_select(self, connection):
@@ -405,12 +401,24 @@ class RowCountTest(_RowCountTest):
 
     # ToDo: How to run this test only on Firebird 5.0+?
 
-    # @testing.skip(
-    #     lambda config: config.db.dialect.server_version_info < (5,),
-    #     "Multiple rows UPDATE RETURNING are supported only in Firebird 5.0+",
-    # )
-    # def test_update_delete_rowcount_return_defaults(self, connection, implicit_returning, dml, **kw):
-    #     super().test_update_delete_rowcount_return_defaults(connection, implicit_returning, dml, **kw)
+    @testing.skip(
+        lambda config: config.db.dialect.server_version_info < (5,),
+        "Multiple rows UPDATE RETURNING are supported only in Firebird 5.0+",
+    )
+    @testing.variation("implicit_returning", [True, False])
+    @testing.variation(
+        "dml",
+        [
+            ("update", testing.requires.update_returning),
+            ("delete", testing.requires.delete_returning),
+        ],
+    )
+    def test_update_delete_rowcount_return_defaults(
+        self, connection, implicit_returning, dml
+    ):
+        super().test_update_delete_rowcount_return_defaults(
+            connection, implicit_returning, dml, None
+        )
 
 
 class SimpleUpdateDeleteTest(_SimpleUpdateDeleteTest):
