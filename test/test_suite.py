@@ -15,6 +15,7 @@ from sqlalchemy.testing.suite import (
     ComponentReflectionTestExtra as _ComponentReflectionTestExtra,
     CompoundSelectTest as _CompoundSelectTest,
     DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest,
+    IdentityColumnTest as _IdentityColumnTest,
     IdentityReflectionTest as _IdentityReflectionTest,
     DateTimeTZTest as _DateTimeTZTest,
     TimeTZTest as _TimeTZTest,
@@ -295,18 +296,60 @@ class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
         super().test_plain_union()
 
 
-class IdentityReflectionTest(_IdentityReflectionTest):
-    # ToDo: How to avoid the setup method of this class to run in Firebird < 4.0?
-
-    @testing.skip(
+class IdentityColumnTest(_IdentityColumnTest):
+    @testing.skip_if(
         lambda config: config.db.dialect.server_version_info < (4,),
-        "GENERATED ... AS IDENTITY columns are supported only in Firebird 4.0+",
+        "GENERATED ALWAYS AS IDENTITY columns are supported only in Firebird 4.0+",
+    )
+    def test_select_all(self, connection):
+        super().test_select_all(connection)
+
+    @testing.skip_if(
+        lambda config: config.db.dialect.server_version_info < (4,),
+        "GENERATED ALWAYS AS IDENTITY columns are supported only in Firebird 4.0+",
+    )
+    def test_insert_always_error(self, connection):
+        super().test_insert_always_error(connection)
+
+
+class IdentityReflectionTest(_IdentityReflectionTest):
+    # Clone of IdentityReflectionTest adapted for Firebird.
+
+    @classmethod
+    def define_tables(cls, metadata):
+        firebird_4_or_higher = config.db.dialect.server_version_info >= (4,)
+
+        Table(
+            "t1",
+            metadata,
+            Column("normal", Integer),
+            Column("id1", Integer, Identity()),
+        )
+
+        Table(
+            "t2",
+            metadata,
+            Column(
+                "id2",
+                Integer,
+                Identity(
+                    always=firebird_4_or_higher,
+                    start=2,
+                    increment=3 if firebird_4_or_higher else None,
+                ),
+            ),
+        )
+
+    @testing.skip_if(
+        lambda config: config.db.dialect.server_version_info < (3,),
+        "GENERATED ... AS IDENTITY columns are supported only in Firebird 3.0+",
     )
     def test_reflect_identity(self):
-        # Clone of super().test_reflect_identity adapted for Firebird.
+        firebird_4_or_higher = config.db.dialect.server_version_info >= (4,)
+
         insp = inspect(config.db)
 
-        cols = insp.get_columns("t1") + insp.get_columns("t2")
+        cols = insp.get_columns("t1")
         for col in cols:
             if col["name"] == "normal":
                 is_false("identity" in col)
@@ -319,12 +362,22 @@ class IdentityReflectionTest(_IdentityReflectionTest):
                     col["identity"],
                     dict(
                         always=False,
-                        start=1,
+                        start=1 if firebird_4_or_higher else 0,
                         increment=1,
                     ),
                     approx=True,
                 )
-            elif col["name"] == "id2":
+
+    @testing.skip_if(
+        lambda config: config.db.dialect.server_version_info < (4,),
+        "GENERATED ALWAYS AS IDENTITY columns are supported only in Firebird 4.0+",
+    )
+    def test_reflect_identity_v4(self):
+        insp = inspect(config.db)
+
+        cols = insp.get_columns("t2")
+        for col in cols:
+            if col["name"] == "id2":
                 if "autoincrement" in col:
                     is_true(col["autoincrement"])
                 eq_(col["default"], None)
@@ -378,10 +431,23 @@ class InsertBehaviorTest(_InsertBehaviorTest):
 
     @testing.skip_if(
         lambda config: config.db.dialect.server_version_info < (3,),
-        "Only supported in Firebird 3.0+.",
+        "IDENTITY columns are supported only in Firebird 3.0+.",
     )
     def test_insert_from_select_autoinc(self, connection):
         super().test_insert_from_select_autoinc(connection)
+
+    @testing.skip_if(
+        lambda config: config.db.dialect.driver == "fdb",
+        "Driver fdb returns erroneous 'returns_rows = True'.",
+    )
+    @testing.variation("style", ["plain", "return_defaults"])
+    @testing.variation("executemany", [True, False])
+    def test_no_results_for_non_returning_insert(
+        self, connection, style, executemany
+    ):
+        super().test_no_results_for_non_returning_insert(
+            connection, style, executemany
+        )
 
 
 class NumericTest(_NumericTest):
@@ -399,11 +465,9 @@ class RowCountTest(_RowCountTest):
     def test_update_rowcount2(self, connection):
         super().test_update_rowcount2(connection)
 
-    # ToDo: How to run this test only on Firebird 5.0+?
-
-    @testing.skip(
+    @testing.skip_if(
         lambda config: config.db.dialect.server_version_info < (5,),
-        "Multiple rows UPDATE RETURNING are supported only in Firebird 5.0+",
+        "Multiple rows UPDATE/DELETE RETURNING are supported only in Firebird 5.0+",
     )
     @testing.variation("implicit_returning", [True, False])
     @testing.variation(
@@ -422,17 +486,23 @@ class RowCountTest(_RowCountTest):
 
 
 class SimpleUpdateDeleteTest(_SimpleUpdateDeleteTest):
-    @pytest.mark.hanging(
-        reason="This test hangs in Firebird 3.0",
+    @testing.skip_if(
+        lambda config: config.db.dialect.server_version_info < (5,),
+        "Multiple rows UPDATE RETURNING are supported only in Firebird 5.0+",
     )
-    def test_update(self, connection):
-        super().test_update(connection)
+    @testing.variation("criteria", ["rows", "norows", "emptyin"])
+    @testing.requires.update_returning
+    def test_update_returning(self, connection, criteria):
+        super().test_update_returning(connection, criteria)
 
-    @pytest.mark.hanging(
-        reason="This test hangs in Firebird 3.0",
+    @testing.skip_if(
+        lambda config: config.db.dialect.server_version_info < (5,),
+        "Multiple rows DELETE RETURNING are supported only in Firebird 5.0+",
     )
-    def test_delete(self, connection):
-        super().test_delete(connection)
+    @testing.variation("criteria", ["rows", "norows", "emptyin"])
+    @testing.requires.delete_returning
+    def test_delete_returning(self, connection, criteria):
+        super().test_delete_returning(connection, criteria)
 
 
 # ToDo: How to skip SequenceTest (from sqlalchemy/test/sql/test_sequences.py) only on Firebird 2.5?
