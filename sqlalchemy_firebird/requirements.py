@@ -140,13 +140,13 @@ class Requirements(SuiteRequirements):
     # 755
     @property
     def indexes_with_ascdesc(self):
-        # Firebird does not support bidirectional indices.
+        # Firebird does not support bidirectional indices per column.
         return exclusions.closed()
 
     # 760
     @property
     def reflect_indexes_with_ascdesc(self):
-        # Firebird does not support bidirectional indices.
+        # Firebird does not support bidirectional indices per column.
         return exclusions.closed()
 
     # 766
@@ -273,6 +273,11 @@ class Requirements(SuiteRequirements):
     @property
     def identity_columns(self):
         # Identity Column Type added in Firebird 3.
+        # However, GENERATED ALWAYS is only supported in Firebird 4.0
+        return self.firebird_3_or_higher()
+
+    @property
+    def identity_columns_standard(self):
         return self.firebird_3_or_higher()
 
     # 1642

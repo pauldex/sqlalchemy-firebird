@@ -9,8 +9,10 @@ from sqlalchemy import types as sqltypes
 from sqlalchemy import util
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
+from sqlalchemy.sql import coercions
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import expression
+from sqlalchemy.sql import roles
 from sqlalchemy.types import BLOB
 from sqlalchemy.types import Integer
 from sqlalchemy.types import NUMERIC
@@ -32,6 +34,16 @@ class FBCompiler(sql.compiler.SQLCompiler):
         return self._handle_limit_fetch_clause(
             None, select._offset_clause, select._limit_clause, **kw
         )
+
+    def for_update_clause(self, select, **kw):
+        tmp = " FOR UPDATE"
+
+        if select._for_update_arg.nowait:
+            tmp += " WITH LOCK"
+        if select._for_update_arg.skip_locked:
+            tmp += " WITH LOCK SKIP LOCKED"
+
+        return tmp
 
     def fetch_clause(
         self,
@@ -110,6 +122,12 @@ class FBCompiler(sql.compiler.SQLCompiler):
 
     def visit_mod_binary(self, binary, operator, **kw):
         return "MOD(%s, %s)" % (
+            self.process(binary.left, **kw),
+            self.process(binary.right, **kw),
+        )
+
+    def visit_bitwise_xor_op_binary(self, binary, operator, **kw):
+        return "BIN_XOR(%s, %s)" % (
             self.process(binary.left, **kw),
             self.process(binary.right, **kw),
         )
@@ -213,6 +231,10 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         if index.unique:
             txt += "UNIQUE "
 
+        descending = index.dialect_options["firebird"]["descending"]
+        if descending is True:
+            txt += "DESCENDING "
+
         txt += "INDEX %s ON %s " % (
             self._prepared_index_name(index, include_schema=include_schema),
             preparer.format_table(
@@ -233,11 +255,13 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
 
         if isinstance(first_expression, expression.ColumnClause):
             # INDEX on columns
-            txt += ", ".join(
-                self.sql_compiler.process(
-                    expr, include_table=False, literal_binds=True
+            txt += "(%s)" % (
+                ", ".join(
+                    self.sql_compiler.process(
+                        expr, include_table=False, literal_binds=True
+                    )
+                    for expr in index.expressions
                 )
-                for expr in index.expressions
             )
         else:
             # INDEX on expression
@@ -247,11 +271,24 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
                 )
                 for expr in index.expressions
             )
+
+        # Partial indices (Firebird 5.0+)
+        whereclause = index.dialect_options["firebird"]["where"]
+        if whereclause is not None:
+            whereclause = coercions.expect(
+                roles.DDLExpressionRole, whereclause
+            )
+
+            where_compiled = self.sql_compiler.process(
+                whereclause, include_table=False, literal_binds=True
+            )
+            txt += " WHERE " + where_compiled
+
         return txt
 
     def post_create_table(self, table):
         table_opts = []
-        fb_opts = table.dialect_options[self.dialect.name]
+        fb_opts = table.dialect_options["firebird"]
 
         if fb_opts["on_commit"]:
             on_commit_options = fb_opts["on_commit"].replace("_", " ").upper()
@@ -275,7 +312,13 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         txt = []
         if identity_options.start is not None:
             start = identity_options.start
-            if self.dialect.server_version_info < (4,):
+
+            vi = self.dialect.server_version_info
+            if vi and self.dialect.server_version_info < (4,):
+                if identity_options.always:
+                    raise exc.CompileError(
+                        "The 'always' flag is only supported in Firebird 4.0 or higher."
+                    )
                 # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
                 start -= (
                     identity_options.increment
@@ -418,6 +461,13 @@ class FBDialect(default.DefaultDialect):
             sa_schema.Table,
             {
                 "on_commit": None,
+            },
+        ),
+        (
+            sa_schema.Index,
+            {
+                "descending": None,
+                "where": None,
             },
         ),
     ]
@@ -792,6 +842,7 @@ class FBDialect(default.DefaultDialect):
         indexes_query = """
             SELECT TRIM(ix.rdb$index_name) AS index_name,
                    ix.rdb$unique_flag AS unique_flag,
+                   ix.rdb$index_type AS descending_flag,
                    TRIM(ic.rdb$field_name) AS field_name,
                    TRIM(ix.rdb$expression_source) expression_source
             FROM rdb$indices ix
@@ -820,6 +871,7 @@ class FBDialect(default.DefaultDialect):
                 indexrec["column_names"] = []
                 indexrec["dialect_options"] = {}
                 indexrec["unique"] = bool(row.unique_flag)
+                indexrec["descending"] = bool(row.descending_flag)
                 if row.expression_source is not None:
                     expr = row.expression_source[
                         1:-1

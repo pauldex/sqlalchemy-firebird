@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from packaging import version
 from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy import Index
-
+from sqlalchemy.testing import is_false
 from sqlalchemy.testing.suite import *  # noqa: F401, F403
 
 from sqlalchemy.testing.suite import (
@@ -95,8 +95,63 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 
         eq_(uniques, reflected)
 
+    def test_get_temp_table_indexes(self, connection):
+        # Clone of super().test_get_temp_table_indexes() adapted for Firebird.
+        insp = inspect(connection)
+        table_name = self.temp_table_name()
+        indexes = insp.get_indexes(table_name)
+        for ind in indexes:
+            ind.pop("dialect_options", None)
+        expected = [
+            {
+                "unique": False,
+                "column_names": ["foo"],
+                "name": "user_tmp_ix",
+                "descending": False,
+            }
+        ]
+        if testing.requires.index_reflects_included_columns.enabled:
+            expected[0]["include_columns"] = []
+        eq_(
+            [idx for idx in indexes if idx["name"] == "user_tmp_ix"],
+            expected,
+        )
+
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
+    def test_reflect_descending_indexes(self, metadata, connection):
+        t = Table(
+            "t",
+            metadata,
+            Column("x", String(30)),
+            Column("y", String(30)),
+            Column("z", String(30)),
+        )
+
+        Index("t_idx_2", t.c.x, firebird_descending=True)
+
+        metadata.create_all(connection)
+
+        insp = inspect(connection)
+
+        expected = [
+            {
+                "name": "t_idx_2",
+                "column_names": ["x"],
+                "unique": False,
+                "dialect_options": {},
+                "descending": True,
+            }
+        ]
+
+        eq_(insp.get_indexes("t"), expected)
+        m2 = MetaData()
+        t2 = Table("t", m2, autoload_with=connection)
+
+        self.compare_table_index_with_expected(
+            t2, expected, connection.engine.name
+        )
+
     def test_reflect_expression_based_indexes(self, metadata, connection):
         # Clone of super().test_reflect_expression_based_indexes adapted for Firebird.
 
@@ -125,12 +180,14 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
                     "unique": False,
                     "expressions": ["lower(x)", "lower(y)"],
                     "dialect_options": {},
+                    "descending": False,
                 },
                 {
                     "name": "t_idx_2",
                     "column_names": ["x"],
                     "unique": False,
                     "dialect_options": {},
+                    "descending": False,
                 },
             ]
 
@@ -161,12 +218,12 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
             {
                 "name": "t_idx_2",
                 "column_names": ["x"],
-                "unique": False,
-                "dialect_options": {},
             }
         ]
 
         def completeIndex(entry):
+            entry.setdefault("unique", False)
+            entry.setdefault("descending", False)
             entry.setdefault("dialect_options", {})
 
         completeIndex(expected[0])
@@ -189,7 +246,6 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
                 "z",
                 lower_index_str("lower(y)"),
             ],
-            "unique": False,
         }
         completeIndex(expr_index)
         expected.insert(0, expr_index)
@@ -198,7 +254,6 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
             "name": "t_idx_long",
             "column_names": [None],
             "expressions": [coalesce_index_str(f"coalesce(x, '{long_str}')")],
-            "unique": False,
         }
         completeIndex(expr_index_long)
         expected.append(expr_index_long)
@@ -248,7 +303,41 @@ class IdentityReflectionTest(_IdentityReflectionTest):
         "GENERATED ... AS IDENTITY columns are supported only in Firebird 4.0+",
     )
     def test_reflect_identity(self):
-        super().test_reflect_identity()
+        # Clone of super().test_reflect_identity adapted for Firebird.
+        insp = inspect(config.db)
+
+        cols = insp.get_columns("t1") + insp.get_columns("t2")
+        for col in cols:
+            if col["name"] == "normal":
+                is_false("identity" in col)
+            elif col["name"] == "id1":
+                if "autoincrement" in col:
+                    is_true(col["autoincrement"])
+                eq_(col["default"], None)
+                is_true("identity" in col)
+                self.check(
+                    col["identity"],
+                    dict(
+                        always=False,
+                        start=1,
+                        increment=1,
+                    ),
+                    approx=True,
+                )
+            elif col["name"] == "id2":
+                if "autoincrement" in col:
+                    is_true(col["autoincrement"])
+                eq_(col["default"], None)
+                is_true("identity" in col)
+                self.check(
+                    col["identity"],
+                    dict(
+                        always=True,
+                        start=2,
+                        increment=3,
+                    ),
+                    approx=False,
+                )
 
 
 # Firebird-driver needs special time zone handling.
