@@ -768,7 +768,7 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
         pk_query = """
-            SELECT TRIM(se.rdb$field_name) AS fname
+            SELECT TRIM(rc.rdb$constraint_name) AS cname, TRIM(se.rdb$field_name) AS fname
             FROM rdb$relation_constraints rc
                  JOIN rdb$index_segments se
                    ON se.rdb$index_name = rc.rdb$index_name
@@ -779,9 +779,15 @@ class FBDialect(default.DefaultDialect):
         tablename = self.denormalize_name(table_name)
         c = connection.exec_driver_sql(pk_query, (tablename,))
 
-        pkfields = [self.normalize_name(r.fname) for r in c.fetchall()]
+        rows = c.fetchall()
+        pkfields = (
+            [self.normalize_name(r.fname) for r in rows] if rows else None
+        )
         if pkfields:
-            return {"constrained_columns": pkfields, "name": None}
+            return {
+                "constrained_columns": pkfields,
+                "name": self.normalize_name(rows[0].cname) if rows else None,
+            }
 
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)

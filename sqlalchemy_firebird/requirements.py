@@ -624,8 +624,7 @@ class Requirements(SuiteRequirements):
 
     @property
     def reflects_pk_names(self):
-        # get_pk_constraint always returns "name": None.
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def table_reflection(self):
