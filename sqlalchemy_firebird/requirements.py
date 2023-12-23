@@ -757,6 +757,7 @@ class Requirements(SuiteRequirements):
     def reflect_indexes_with_ascdesc(self):
         """target database supports reflecting INDEX with per-column
         ASC/DESC."""
+
         # Firebird does not support bidirectional indices per column.
         return exclusions.closed()
 
@@ -1216,11 +1217,11 @@ class Requirements(SuiteRequirements):
     def infinity_floats(self):
         """The Float type can persist and load float('inf'), float('-inf')."""
 
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def float_or_double_precision_behaves_generically(self):
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def precision_generic_float_type(self):
@@ -1392,7 +1393,7 @@ class Requirements(SuiteRequirements):
         so this is off by default.
 
         """
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def order_by_collation(self):
@@ -1744,7 +1745,7 @@ class Requirements(SuiteRequirements):
         SELECT * FROM some_table
         OFFSET 1 + 1 ROWS FETCH FIRST 1 + 1 ROWS ONLY
         """
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def autoincrement_without_sequence(self):
