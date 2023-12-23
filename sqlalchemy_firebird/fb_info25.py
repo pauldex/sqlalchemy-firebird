@@ -10,23 +10,7 @@
 
 """
 
-from packaging import version
-
-from sqlalchemy import __version__ as SQLALCHEMY_VERSION
-from sqlalchemy.types import BIGINT
-from sqlalchemy.types import BLOB
-from sqlalchemy.types import DATE
-from sqlalchemy.types import FLOAT
-from sqlalchemy.types import INTEGER
-from sqlalchemy.types import NUMERIC
-from sqlalchemy.types import SMALLINT
-from sqlalchemy.types import TEXT
-from sqlalchemy.types import TIME
-from sqlalchemy.types import TIMESTAMP
-
-from .types import CHAR
-from .types import VARCHAR
-from .types import DOUBLE_PRECISION
+import sqlalchemy.types as sa_types
 
 # https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-datatypes
 # "Length cannot exceed 31 characters."
@@ -209,32 +193,38 @@ RESERVED_WORDS = {
 
 # https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-datatypes
 ISCHEMA_NAMES = {
-    "SMALLINT": SMALLINT,
-    "INT": INTEGER,
-    "INTEGER": INTEGER,
-    "BIGINT": BIGINT,
-    "FLOAT": FLOAT,
-    "DOUBLE PRECISION": FLOAT
-    if version.parse(SQLALCHEMY_VERSION).major < 2
-    else DOUBLE_PRECISION,
-    "DATE": DATE,
-    "TIME": TIME,
-    "TIMESTAMP": TIMESTAMP,
-    "DECIMAL": NUMERIC,
-    "NUMERIC": NUMERIC,
-    "VARCHAR": VARCHAR,
-    "CHAR VARYING": VARCHAR,
-    "CHARACTER VARYING": VARCHAR,
-    "CHAR": CHAR,
-    "CHARACTER": CHAR,
+    "SMALLINT": sa_types.SMALLINT,
+    "INT": sa_types.INTEGER,
+    "INTEGER": sa_types.INTEGER,
+    "BIGINT": sa_types.BIGINT,
+    "REAL": sa_types.REAL,
+    "FLOAT": sa_types.FLOAT,
+    "DOUBLE PRECISION": sa_types.FLOAT,
+    "DATE": sa_types.DATE,
+    "TIME": sa_types.TIME,
+    "TIMESTAMP": sa_types.TIMESTAMP,
+    "DECIMAL": sa_types.NUMERIC,
+    "NUMERIC": sa_types.NUMERIC,
+    "VARCHAR": sa_types.VARCHAR,
+    "CHAR VARYING": sa_types.VARCHAR,
+    "CHARACTER VARYING": sa_types.VARCHAR,
+    "CHAR": sa_types.CHAR,
+    "CHARACTER": sa_types.CHAR,
     # Compatibility
-    "SHORT": SMALLINT,
-    "LONG": INTEGER,
-    "QUAD": FLOAT,
-    "TEXT": TEXT,
-    "INT64": BIGINT,
-    "DOUBLE": FLOAT,
-    "VARYING": VARCHAR,
-    "CSTRING": CHAR,
-    "BLOB": BLOB,
+    "SHORT": sa_types.SMALLINT,
+    "LONG": sa_types.INTEGER,
+    "QUAD": sa_types.FLOAT,
+    "TEXT": sa_types.TEXT,
+    "INT64": sa_types.BIGINT,
+    "LONG FLOAT": sa_types.FLOAT,
+    "DOUBLE": sa_types.FLOAT,
+    "VARYING": sa_types.VARCHAR,
+    "CSTRING": sa_types.CHAR,
+    "BLOB": sa_types.BLOB,
+    "NCHAR VARYING": sa_types.VARCHAR,
+    "NATIONAL CHAR VARYING": sa_types.VARCHAR,
+    "NATIONAL CHARACTER VARYING": sa_types.VARCHAR,
+    "NCHAR": sa_types.CHAR,
+    "NATIONAL CHAR": sa_types.CHAR,
+    "NATIONAL CHARACTER": sa_types.CHAR,
 }

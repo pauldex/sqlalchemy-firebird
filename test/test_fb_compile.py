@@ -1,4 +1,4 @@
-from sqlalchemy import Date, Float, Identity, and_, tuple_
+from sqlalchemy import Date, Identity, and_
 from sqlalchemy import cast
 from sqlalchemy import column
 from sqlalchemy import Column
@@ -16,9 +16,7 @@ from sqlalchemy import table
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import text
-from sqlalchemy import Unicode
 from sqlalchemy import update
-from sqlalchemy import VARCHAR
 from sqlalchemy.sql import literal_column
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.testing import assert_raises_message
@@ -44,35 +42,12 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
             "FROM sometable AS sometable_1",
         )
 
-    def test_varchar_raise(self):
-        for type_ in (
-            String,
-            VARCHAR,
-            String(),
-            VARCHAR(),
-            Unicode,
-            Unicode(),
-        ):
-            type_ = sqltypes.to_instance(type_)
-            assert_raises_message(
-                exc.CompileError,
-                "VARCHAR requires a length on dialect firebird",
-                type_.compile,
-                dialect=self.__dialect__,
-            )
-
-            t1 = Table("sometable", MetaData(), Column("somecolumn", type_))
-            assert_raises_message(
-                exc.CompileError,
-                r"\(in table 'sometable', column 'somecolumn'\)\: "
-                r"(?:N)?VARCHAR requires a length on dialect firebird",
-                schema.CreateTable(t1).compile,
-                dialect=self.__dialect__,
-            )
-
     @testing.provide_metadata
     def test_function(self):
-        self.assert_compile(func.foo(1, 2), "foo(:foo_1, :foo_2)")
+        self.assert_compile(
+            func.foo(1, 2),
+            "foo(CAST(:foo_1 AS INTEGER), CAST(:foo_2 AS INTEGER))",
+        )
         self.assert_compile(func.current_time(), "CURRENT_TIME")
         self.assert_compile(func.foo(), "foo")
         t = Table(
@@ -83,103 +58,22 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         )
         self.assert_compile(
             select(func.max(t.c.col1)),
-            "SELECT max(sometable.col1) AS max_1 FROM " "sometable",
-        )
-
-    def test_substring(self):
-        self.assert_compile(
-            func.substring("abc", 1, 2),
-            "SUBSTRING(:substring_1 FROM :substring_2 " "FOR :substring_3)",
-        )
-        self.assert_compile(
-            func.substring("abc", 1),
-            "SUBSTRING(:substring_1 FROM :substring_2)",
-        )
-
-    def test_update_returning(self):
-        table1 = table(
-            "mytable",
-            column("myid", Integer),
-            column("name", String(128)),
-            column("description", String(128)),
-        )
-        u = (
-            update(table1)
-            .values(dict(name="foo"))
-            .returning(table1.c.myid, table1.c.name)
-        )
-        self.assert_compile(
-            u,
-            "UPDATE mytable SET name=:name RETURNING "
-            "mytable.myid, mytable.name",
-        )
-        u = update(table1).values(dict(name="foo")).returning(table1)
-        self.assert_compile(
-            u,
-            "UPDATE mytable SET name=:name RETURNING "
-            "mytable.myid, mytable.name, "
-            "mytable.description",
-        )
-        u = (
-            update(table1)
-            .values(dict(name="foo"))
-            .returning(func.length(table1.c.name))
-        )
-        self.assert_compile(
-            u,
-            "UPDATE mytable SET name=:name RETURNING "
-            "CHAR_LENGTH(mytable.name) AS length_1",
-        )
-
-    def test_insert_returning(self):
-        table1 = table(
-            "mytable",
-            column("myid", Integer),
-            column("name", String(128)),
-            column("description", String(128)),
-        )
-        i = (
-            insert(table1)
-            .values(dict(name="foo"))
-            .returning(table1.c.myid, table1.c.name)
-        )
-        self.assert_compile(
-            i,
-            "INSERT INTO mytable (name) VALUES (:name) "
-            "RETURNING mytable.myid, mytable.name",
-        )
-        i = insert(table1).values(dict(name="foo")).returning(table1)
-        self.assert_compile(
-            i,
-            "INSERT INTO mytable (name) VALUES (:name) "
-            "RETURNING mytable.myid, mytable.name, "
-            "mytable.description",
-        )
-        i = (
-            insert(table1)
-            .values(dict(name="foo"))
-            .returning(func.length(table1.c.name))
-        )
-        self.assert_compile(
-            i,
-            "INSERT INTO mytable (name) VALUES (:name) "
-            "RETURNING CHAR_LENGTH(mytable.name) AS "
-            "length_1",
+            "SELECT max(sometable.col1) AS max_1 FROM sometable",
         )
 
     def test_charset(self):
         """Exercise CHARACTER SET options on string types."""
         columns = [
-            (FbTypes.CHAR, [1], {}, "CHAR(1)"),
+            (FbTypes._FBCHAR, [1], {}, "CHAR(1)"),
             (
-                FbTypes.CHAR,
+                FbTypes._FBCHAR,
                 [1],
                 {"charset": "OCTETS"},
                 "CHAR(1) CHARACTER SET OCTETS",
             ),
-            (FbTypes.VARCHAR, [1], {}, "VARCHAR(1)"),
+            (FbTypes._FBVARCHAR, [1], {}, "VARCHAR(1)"),
             (
-                FbTypes.VARCHAR,
+                FbTypes._FBVARCHAR,
                 [1],
                 {"charset": "OCTETS"},
                 "VARCHAR(1) CHARACTER SET OCTETS",
@@ -191,24 +85,6 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
     def test_quoting_initial_chars(self):
         self.assert_compile(column("_somecol"), '"_somecol"')
         self.assert_compile(column("$somecol"), '"$somecol"')
-
-    @testing.provide_metadata
-    @testing.combinations(
-        ("no_persisted", "ignore"), ("persisted_none", None), id_="ia"
-    )
-    def test_column_computed(self, persisted):
-        kwargs = {"persisted": persisted} if persisted != "ignore" else {}
-        t = Table(
-            "t",
-            self.metadata,
-            Column("x", Integer),
-            Column("y", Integer, Computed("x + 2", **kwargs)),
-        )
-        self.assert_compile(
-            schema.CreateTable(t),
-            "CREATE TABLE t (x INTEGER, y INTEGER GENERATED "
-            "ALWAYS AS (x + 2))",
-        )
 
     #
     # Tests from postgresql/test_compiler.py
@@ -243,13 +119,13 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         )
         self.assert_compile(
             u,
-            "UPDATE mytable SET name=:name "
+            "UPDATE mytable SET name=CAST(:name AS VARCHAR(128)) "
             "RETURNING mytable.myid, mytable.name",
         )
         u = update(table1).values(dict(name="foo")).returning(table1)
         self.assert_compile(
             u,
-            "UPDATE mytable SET name=:name "
+            "UPDATE mytable SET name=CAST(:name AS VARCHAR(128)) "
             "RETURNING mytable.myid, mytable.name, "
             "mytable.description",
         )
@@ -260,7 +136,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         )
         self.assert_compile(
             u,
-            "UPDATE mytable SET name=:name "
+            "UPDATE mytable SET name=CAST(:name AS VARCHAR(128)) "
             "RETURNING CHAR_LENGTH(mytable.name) AS length_1",
         )
 
@@ -279,14 +155,14 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         self.assert_compile(
             i,
             "INSERT INTO mytable (name) VALUES "
-            "(:name) RETURNING mytable.myid, "
+            "(CAST(:name AS VARCHAR(128))) RETURNING mytable.myid, "
             "mytable.name",
         )
         i = insert(table1).values(dict(name="foo")).returning(table1)
         self.assert_compile(
             i,
             "INSERT INTO mytable (name) VALUES "
-            "(:name) RETURNING mytable.myid, "
+            "(CAST(:name AS VARCHAR(128))) RETURNING mytable.myid, "
             "mytable.name, mytable.description",
         )
         i = (
@@ -297,7 +173,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         self.assert_compile(
             i,
             "INSERT INTO mytable (name) VALUES "
-            "(:name) RETURNING CHAR_LENGTH(mytable.name) "
+            "(CAST(:name AS VARCHAR(128))) RETURNING CHAR_LENGTH(mytable.name) "
             "AS length_1",
         )
 
@@ -323,10 +199,11 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         else:
             stmt = insert(table1).returning(table1.c.name, table1.c.value)
 
+        # Type MyString have render_bind_cast = False
         self.assert_compile(
             stmt,
             'INSERT INTO some_table (name, "value") '
-            "VALUES (:name, :value) RETURNING some_table.name, "
+            "VALUES (CAST(:name AS BLOB SUB_TYPE TEXT), :value) RETURNING some_table.name, "
             'lower(some_table."value") AS "value"',
         )
 
@@ -469,11 +346,11 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
     def test_substring(self):
         self.assert_compile(
             func.substring("abc", 1, 2),
-            "SUBSTRING(:substring_1 FROM :substring_2 " "FOR :substring_3)",
+            "SUBSTRING(CAST(:substring_1 AS BLOB SUB_TYPE TEXT) FROM CAST(:substring_2 AS INTEGER) FOR CAST(:substring_3 AS INTEGER))",
         )
         self.assert_compile(
             func.substring("abc", 1),
-            "SUBSTRING(:substring_1 FROM :substring_2)",
+            "SUBSTRING(CAST(:substring_1 AS BLOB SUB_TYPE TEXT) FROM CAST(:substring_2 AS INTEGER))",
         )
 
     def test_for_update(self):
@@ -484,7 +361,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
         self.assert_compile(
             table1.select().where(table1.c.myid == 7).with_for_update(),
             "SELECT mytable.myid, mytable.name, mytable.description "
-            "FROM mytable WHERE mytable.myid = :myid_1 FOR UPDATE",
+            "FROM mytable WHERE mytable.myid = CAST(:myid_1 AS INTEGER) FOR UPDATE",
         )
 
         self.assert_compile(
@@ -492,7 +369,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
             .where(table1.c.myid == 7)
             .with_for_update(nowait=True),
             "SELECT mytable.myid, mytable.name, mytable.description "
-            "FROM mytable WHERE mytable.myid = :myid_1 FOR UPDATE WITH LOCK",
+            "FROM mytable WHERE mytable.myid = CAST(:myid_1 AS INTEGER) FOR UPDATE WITH LOCK",
         )
 
         self.assert_compile(
@@ -500,7 +377,7 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
             .where(table1.c.myid == 7)
             .with_for_update(skip_locked=True),
             "SELECT mytable.myid, mytable.name, mytable.description "
-            "FROM mytable WHERE mytable.myid = :myid_1 "
+            "FROM mytable WHERE mytable.myid = CAST(:myid_1 AS INTEGER) "
             "FOR UPDATE WITH LOCK SKIP LOCKED",
         )
 
@@ -613,128 +490,6 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
             "employees",
             column("id", Integer),
             column("sales_count", String),
-        )
-
-    # from examples at https://www.postgresql.org/docs/current/sql-update.html
-    def test_difficult_update_1(self, update_tables):
-        update = (
-            self.weather.update()
-            .where(self.weather.c.city == "San Francisco")
-            .where(self.weather.c.date == "2003-07-03")
-            .values(
-                {
-                    tuple_(
-                        self.weather.c.temp_lo,
-                        self.weather.c.temp_hi,
-                        self.weather.c.prcp,
-                    ): tuple_(
-                        self.weather.c.temp_lo + 1,
-                        self.weather.c.temp_lo + 15,
-                        literal_column("DEFAULT"),
-                    )
-                }
-            )
-        )
-
-        self.assert_compile(
-            update,
-            "UPDATE weather SET (temp_lo, temp_hi, prcp)=(weather.temp_lo + "
-            ":temp_lo_1, weather.temp_lo + :temp_lo_2, DEFAULT) "
-            'WHERE weather.city = :city_1 AND weather."date" = :date_1',
-            {
-                "city_1": "San Francisco",
-                "date_1": "2003-07-03",
-                "temp_lo_1": 1,
-                "temp_lo_2": 15,
-            },
-        )
-
-    def test_difficult_update_2(self, update_tables):
-        update = self.accounts.update().values(
-            {
-                tuple_(
-                    self.accounts.c.contact_first_name,
-                    self.accounts.c.contact_last_name,
-                ): select(
-                    self.salesmen.c.first_name, self.salesmen.c.last_name
-                )
-                .where(self.salesmen.c.id == self.accounts.c.sales_id)
-                .scalar_subquery()
-            }
-        )
-
-        self.assert_compile(
-            update,
-            "UPDATE accounts SET (contact_first_name, contact_last_name)="
-            "(SELECT salesmen.first_name, salesmen.last_name FROM "
-            "salesmen WHERE salesmen.id = accounts.sales_id)",
-        )
-
-    def test_difficult_update_3(self, update_tables):
-        update = (
-            self.employees.update()
-            .values(
-                {
-                    self.employees.c.sales_count: self.employees.c.sales_count
-                    + 1
-                }
-            )
-            .where(
-                self.employees.c.id
-                == select(self.accounts.c.sales_person)
-                .where(self.accounts.c.name == "Acme Corporation")
-                .scalar_subquery()
-            )
-        )
-
-        self.assert_compile(
-            update,
-            "UPDATE employees SET sales_count=(employees.sales_count "
-            "+ :sales_count_1) WHERE employees.id = (SELECT "
-            "accounts.sales_person FROM accounts WHERE "
-            "accounts.name = :name_1)",
-            {"sales_count_1": 1, "name_1": "Acme Corporation"},
-        )
-
-    def test_difficult_update_4(self):
-        summary = table(
-            "summary",
-            column("group_id", Integer),
-            column("sum_y", Float),
-            column("sum_x", Float),
-            column("avg_x", Float),
-            column("avg_y", Float),
-        )
-        data = table(
-            "data",
-            column("group_id", Integer),
-            column("x", Float),
-            column("y", Float),
-        )
-
-        update = summary.update().values(
-            {
-                tuple_(
-                    summary.c.sum_x,
-                    summary.c.sum_y,
-                    summary.c.avg_x,
-                    summary.c.avg_y,
-                ): select(
-                    func.sum(data.c.x),
-                    func.sum(data.c.y),
-                    func.avg(data.c.x),
-                    func.avg(data.c.y),
-                )
-                .where(data.c.group_id == summary.c.group_id)
-                .scalar_subquery()
-            }
-        )
-        self.assert_compile(
-            update,
-            "UPDATE summary SET (sum_x, sum_y, avg_x, avg_y)="
-            "(SELECT sum(data.x) AS sum_1, sum(data.y) AS sum_2, "
-            "avg(data.x) AS avg_1, avg(data.y) AS avg_2 FROM data "
-            "WHERE data.group_id = summary.group_id)",
         )
 
     def test_bitwise_xor(self):

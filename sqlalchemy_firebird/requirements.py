@@ -854,7 +854,7 @@ class Requirements(SuiteRequirements):
 
         """
 
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def datetime(self):
@@ -885,7 +885,7 @@ class Requirements(SuiteRequirements):
         a plain string.
 
         """
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def time_implicit_bound(self):
@@ -894,7 +894,7 @@ class Requirements(SuiteRequirements):
         a plain string.
 
         """
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def datetime_implicit_bound(self):
@@ -903,7 +903,7 @@ class Requirements(SuiteRequirements):
         a plain string.
 
         """
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def datetime_microseconds(self):
@@ -935,6 +935,7 @@ class Requirements(SuiteRequirements):
         """target dialect supports representation of Python
         datetime.datetime() objects with historic (pre 1970) values."""
 
+        # Closed due firebird-driver bug: https://github.com/FirebirdSQL/python3-driver/issues/34
         return exclusions.closed()
 
     @property
@@ -956,6 +957,7 @@ class Requirements(SuiteRequirements):
         """target dialect supports representation of Python
         datetime.datetime() objects with historic (pre 1970) values."""
 
+        # Closed due firebird-driver bug: https://github.com/FirebirdSQL/python3-driver/issues/34
         return exclusions.closed()
 
     @property
@@ -1251,7 +1253,9 @@ class Requirements(SuiteRequirements):
         i.e. it does not return 15.75629997253418
 
         """
-        return exclusions.open()
+
+        # Firebird returns 15.75629997253418.
+        return exclusions.closed()
 
     @property
     def floats_to_four_decimals(self):

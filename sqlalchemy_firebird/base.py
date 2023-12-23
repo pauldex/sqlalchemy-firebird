@@ -5,24 +5,34 @@ from sqlalchemy import exc
 from sqlalchemy import schema as sa_schema
 from sqlalchemy import sql
 from sqlalchemy import text
-from sqlalchemy import types as sqltypes
+from sqlalchemy import types as sa_types
 from sqlalchemy import util
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
+from sqlalchemy.engine.interfaces import BindTyping
 from sqlalchemy.sql import coercions
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import expression
 from sqlalchemy.sql import roles
-from sqlalchemy.types import BLOB
-from sqlalchemy.types import Integer
-from sqlalchemy.types import NUMERIC
-from sqlalchemy.types import TEXT
+
+import sqlalchemy_firebird.types as fb_types
+
 
 EXPRESSION_SEPARATOR = "||"
 
 
+def coalesce(*arg):
+    # https://stackoverflow.com/questions/4978738/is-there-a-python-equivalent-of-the-c-sharp-null-coalescing-operator#comment37717570_16247152
+    return next((a for a in arg if a is not None), None)
+
+
 class FBCompiler(sql.compiler.SQLCompiler):
-    ansi_bind_rules = True
+    def render_bind_cast(self, type_, dbapi_type, sqltext):
+        return f"""CAST({sqltext} AS {
+            self.dialect.type_compiler_instance.process(
+                dbapi_type, identifier_preparer=self.preparer
+            )
+        })"""
 
     def visit_empty_set_expr(self, element_types, **kw):
         return "SELECT 1 FROM rdb$database WHERE 1 != 1"
@@ -168,7 +178,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         colspec = self.preparer.format_column(column)
 
         impl_type = column.type.dialect_impl(self.dialect)
-        if isinstance(impl_type, sqltypes.TypeDecorator):
+        if isinstance(impl_type, sa_types.TypeDecorator):
             impl_type = impl_type.impl
 
         has_identity = column.identity is not None
@@ -370,15 +380,12 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
         return "BLOB SUB_TYPE 0"
 
     def _render_string_type(self, type_, name, length_override=None):
-        text = name
-
-        length = (
-            length_override
-            if length_override
-            else getattr(type_, "length", None)
+        length = coalesce(
+            length_override,
+            getattr(type_, "length", None),
         )
-        if length is not None:
-            text += f"({length})"
+
+        text = "BLOB SUB_TYPE TEXT" if length is None else f"{name}({length})"
 
         charset = getattr(type_, "charset", None)
         if charset is not None:
@@ -390,12 +397,17 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
 
         return text
 
-    def visit_VARCHAR(self, type_, **kw):
-        if not type_.length:
-            raise exc.CompileError(
-                f"VARCHAR requires a length on dialect {self.dialect.name}."
-            )
-        return super().visit_VARCHAR(type_, **kw)
+    def visit_NUMERIC(self, type_, **kw):
+        return "NUMERIC(%(precision)s, %(scale)s)" % {
+            "precision": coalesce(type_.precision, 18),
+            "scale": coalesce(type_.scale, 4),
+        }
+
+    def visit_DECIMAL(self, type_, **kw):
+        return "DECIMAL(%(precision)s, %(scale)s)" % {
+            "precision": coalesce(type_.precision, 18),
+            "scale": coalesce(type_.scale, 4),
+        }
 
     def visit_TIMESTAMP(self, type_, **kw):
         if self.dialect.server_version_info < (4,):
@@ -441,6 +453,8 @@ class FBExecutionContext(default.DefaultExecutionContext):
 
 
 class FBDialect(default.DefaultDialect):
+    bind_typing = BindTyping.RENDER_CASTS
+
     supports_alter = True
     supports_sane_rowcount = True
     supports_sane_multi_rowcount = False
@@ -475,6 +489,22 @@ class FBDialect(default.DefaultDialect):
     supports_unicode_binds = True
     supports_empty_insert = False
     supports_is_distinct_from = True
+
+    colspecs = {
+        sa_types.String: fb_types._FBString,
+        sa_types.Numeric: fb_types._FBNumeric,
+        sa_types.Float: fb_types._FBFLOAT,
+        sa_types.Double: fb_types._FBDOUBLE_PRECISION,
+        sa_types.Date: fb_types._FBDATE,
+        sa_types.Time: fb_types._FBTIME,
+        sa_types.DateTime: fb_types._FBTIMESTAMP,
+        sa_types.BigInteger: fb_types._FBBIGINT,
+        sa_types.Integer: fb_types._FBINTEGER,
+        sa_types.SmallInteger: fb_types._FBSMALLINT,
+        sa_types.BINARY: fb_types._FBBINARY,
+        sa_types.VARBINARY: fb_types._FBVARBINARY,
+        sa_types.LargeBinary: fb_types._FBVARBINARY,
+    }
 
     construct_arguments = [
         (
@@ -698,15 +728,19 @@ class FBDialect(default.DefaultDialect):
                     "Did not recognize type '%s' of column '%s'"
                     % (colspec, colname)
                 )
-                coltype = sqltypes.NULLTYPE
-            elif issubclass(coltype, Integer) and row.fprec != 0:
-                coltype = NUMERIC(precision=row.fprec, scale=row.fscale * -1)
+                coltype = sa_types.NULLTYPE
+            elif issubclass(coltype, sa_types.Integer) and row.fprec != 0:
+                coltype = sa_types.NUMERIC(
+                    precision=row.fprec, scale=row.fscale * -1
+                )
             elif colspec in ("VARYING", "CSTRING"):
                 coltype = coltype(row.flen)
             elif colspec == "TEXT":
-                coltype = TEXT(row.flen)
+                coltype = sa_types.TEXT(row.flen)
             elif colspec == "BLOB":
-                coltype = TEXT() if row.stype == 1 else BLOB()
+                coltype = (
+                    sa_types.TEXT() if row.stype == 1 else sa_types.BLOB()
+                )
             else:
                 coltype = coltype()
 

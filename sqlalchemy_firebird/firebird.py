@@ -12,46 +12,16 @@
 
 from math import modf
 from sqlalchemy import util
-from sqlalchemy import types as sqltypes
 from .base import FBDialect
 
 import firebird.driver
 from firebird.driver import driver_config
 
 
-class _binary_firebird:
-    def bind_processor(self, dialect):
-        def process(value):
-            return None if value is None else bytes(value)
-
-        return process
-
-
-class BINARY_firebird(_binary_firebird, sqltypes.BINARY):
-    pass
-
-
-class VARBINARY_firebird(_binary_firebird, sqltypes.VARBINARY):
-    pass
-
-
-class LargeBinary_firebird(_binary_firebird, sqltypes.LargeBinary):
-    pass
-
-
 class FBDialect_firebird(FBDialect):
     name = "firebird.firebird"
     driver = "firebird-driver"
     supports_statement_cache = True
-
-    colspecs = util.update_copy(
-        FBDialect.colspecs,
-        {
-            sqltypes.BINARY: BINARY_firebird,
-            sqltypes.VARBINARY: VARBINARY_firebird,
-            sqltypes.LargeBinary: LargeBinary_firebird,
-        },
-    )
 
     @classmethod
     def dbapi(cls):
