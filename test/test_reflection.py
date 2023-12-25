@@ -14,7 +14,6 @@ from sqlalchemy import String
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import UniqueConstraint
-from sqlalchemy.dialects.postgresql import INTEGER
 from sqlalchemy.schema import CreateIndex
 from sqlalchemy.sql.schema import CheckConstraint
 from sqlalchemy.testing import AssertsCompiledSQL
@@ -174,7 +173,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
     def test_quoted_domain_is_reflected(self, connection):
         metadata = MetaData()
         table = Table("quote_test", metadata, autoload_with=connection)
-        eq_(table.c.data.type.__class__, INTEGER)
+        eq_(table.c.data.type.__class__, Integer)
 
     @property
     def all_domains(self):
