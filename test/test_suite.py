@@ -101,18 +101,18 @@ class ComponentReflectionTest(_ComponentReflectionTest):
         insp = inspect(connection)
         table_name = self.temp_table_name()
         indexes = insp.get_indexes(table_name)
-        for ind in indexes:
-            ind.pop("dialect_options", None)
+
         expected = [
             {
                 "unique": False,
                 "column_names": ["foo"],
                 "name": "user_tmp_ix",
-                "descending": False,
+                "dialect_options": {
+                    "firebird_descending": False,
+                    "firebird_where": None,
+                },
             }
         ]
-        if testing.requires.index_reflects_included_columns.enabled:
-            expected[0]["include_columns"] = []
         eq_(
             [idx for idx in indexes if idx["name"] == "user_tmp_ix"],
             expected,
@@ -140,8 +140,10 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
                 "name": "t_idx_2",
                 "column_names": ["x"],
                 "unique": False,
-                "dialect_options": {},
-                "descending": True,
+                "dialect_options": {
+                    "firebird_descending": True,
+                    "firebird_where": None,
+                },
             }
         ]
 
@@ -224,8 +226,13 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
 
         def completeIndex(entry):
             entry.setdefault("unique", False)
-            entry.setdefault("descending", False)
-            entry.setdefault("dialect_options", {})
+            entry.setdefault(
+                "dialect_options",
+                {
+                    "firebird_descending": False,
+                    "firebird_where": None,
+                },
+            )
 
         completeIndex(expected[0])
 
@@ -242,6 +249,7 @@ class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
         expr_index = {
             "name": "t_idx",
             "column_names": [None, "z", None],
+            "unique": False,
             "expressions": [
                 lower_index_str("lower(x)"),
                 "z",
@@ -310,6 +318,20 @@ class IdentityColumnTest(_IdentityColumnTest):
     )
     def test_insert_always_error(self, connection):
         super().test_insert_always_error(connection)
+
+    def test_select_columns(self, connection):
+        # Clone of super().test_select_columns adjusted for Firebird.
+        is_firebird_3_or_lower = config.db.dialect.server_version_info < (4,)
+        expected = [(42,), (43,)]
+        if is_firebird_3_or_lower:
+            # Firebird 3 has distinct START WITH semantic.
+            # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
+            expected = [(43,), (44,)]
+
+        res = connection.execute(
+            select(self.tables.tbl_a.c.id).order_by(self.tables.tbl_a.c.id)
+        ).fetchall()
+        eq_(res, expected)
 
 
 class IdentityReflectionTest(_IdentityReflectionTest):

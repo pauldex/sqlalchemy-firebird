@@ -1,4 +1,10 @@
+# Allow circular references between FBDialect and FBInspector
+from __future__ import annotations
+
 from packaging import version
+
+from typing import List
+from typing import Optional
 
 from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy import exc
@@ -328,13 +334,11 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         if identity_options.start is not None:
             start = identity_options.start
 
-            if firebird_3_or_lower:
-                # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
-                start -= (
-                    identity_options.increment
-                    if identity_options.increment is not None
-                    else 1
-                )
+            # Firebird 3 has distinct START WITH semantic.
+            # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
+            # Previous versions of dialect tried to hide this (adjusting here the reflected start value).
+            # This was removed since it opens a can of worms (e.g. when reading databases NOT created by SQLAlchemy).
+
             txt.append("START WITH %d" % start)
 
         if not firebird_3_or_lower:
@@ -452,6 +456,37 @@ class FBExecutionContext(default.DefaultExecutionContext):
         )
 
 
+class ReflectedDomain(util.typing.TypedDict):
+    """Represents a reflected domain."""
+
+    name: str
+    """The string name of the underlying data type of the domain."""
+    nullable: bool
+    """Indicates if the domain allows null or not."""
+    default: Optional[str]
+    """The string representation of the default value of this domain
+    or ``None`` if none present.
+    """
+    check: Optional[str]
+    """The constraint defined in the domain, if any.
+    """
+    comment: Optional[str]
+    """The comment of the domain, if any.
+    """
+
+
+class FBInspector(reflection.Inspector):
+    dialect: FBDialect
+
+    def get_domains(
+        self, schema: Optional[str] = None
+    ) -> List[ReflectedDomain]:
+        with self._operation_context() as conn:
+            return self.dialect._load_domains(
+                conn, schema, info_cache=self.info_cache
+            )
+
+
 class FBDialect(default.DefaultDialect):
     bind_typing = BindTyping.RENDER_CASTS
 
@@ -480,6 +515,7 @@ class FBDialect(default.DefaultDialect):
     type_compiler = FBTypeCompiler  # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
     preparer = FBIdentifierPreparer
     execution_ctx_cls = FBExecutionContext
+    inspector = FBInspector
 
     update_returning = True
     delete_returning = True
@@ -585,7 +621,7 @@ class FBDialect(default.DefaultDialect):
             FROM rdb$relations
             WHERE rdb$relation_type IN (0 /* TABLE */)
               AND COALESCE(rdb$system_flag, 0) = 0
-            ORDER BY rdb$relation_name
+            ORDER BY 1
         """
 
         return [
@@ -601,7 +637,7 @@ class FBDialect(default.DefaultDialect):
             WHERE rdb$relation_type IN (4 /* TEMPORARY_TABLE_PRESERVE */, 
                                         5 /* TEMPORARY_TABLE_DELETE */)
               AND COALESCE(rdb$system_flag, 0) = 0
-            ORDER BY rdb$relation_name
+            ORDER BY 1
         """
         return [
             self.normalize_name(row.relation_name)
@@ -615,7 +651,7 @@ class FBDialect(default.DefaultDialect):
             FROM rdb$relations
             WHERE rdb$relation_type IN (1 /* VIEW */)
               AND COALESCE(rdb$system_flag, 0) = 0
-            ORDER BY rdb$relation_name
+            ORDER BY 1
         """
         return [
             self.normalize_name(row.relation_name)
@@ -656,10 +692,11 @@ class FBDialect(default.DefaultDialect):
         self, connection, table_name, schema=None, **kw
     ):
         is_firebird_25 = self.server_version_info < (3,)
+        is_firebird_3_or_lower = self.server_version_info < (4,)
 
         columns_query = """
             SELECT TRIM(r.rdb$field_name) AS fname,
-                   r.rdb$null_flag AS null_flag,
+                   COALESCE(r.rdb$null_flag, f.rdb$null_flag) AS null_flag,
                    t.rdb$type_name AS ftype,
                    f.rdb$field_sub_type AS stype,
                    f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
@@ -681,7 +718,7 @@ class FBDialect(default.DefaultDialect):
                         ON cs.rdb$character_set_id = f.rdb$character_set_id
                  LEFT JOIN rdb$generators g
                         ON g.rdb$generator_name = r.rdb$generator_name
-            WHERE f.rdb$system_flag = 0 
+            WHERE COALESCE(f.rdb$system_flag, 0) = 0
               AND r.rdb$relation_name = ?
             ORDER BY r.rdb$field_position
         """
@@ -690,7 +727,7 @@ class FBDialect(default.DefaultDialect):
             # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
             columns_query = """
                 SELECT TRIM(r.rdb$field_name) AS fname,
-                       r.rdb$null_flag AS null_flag,
+                       COALESCE(r.rdb$null_flag, f.rdb$null_flag) AS null_flag,
                        t.rdb$type_name AS ftype,
                        f.rdb$field_sub_type AS stype,
                        f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
@@ -707,7 +744,7 @@ class FBDialect(default.DefaultDialect):
                       AND t.rdb$field_name = 'RDB$FIELD_TYPE'
                       LEFT JOIN rdb$character_sets cs
                              ON cs.rdb$character_set_id = f.rdb$character_set_id
-                WHERE f.rdb$system_flag = 0
+                WHERE COALESCE(f.rdb$system_flag, 0) = 0
                   AND r.rdb$relation_name = ?
                 ORDER BY r.rdb$field_position
             """
@@ -899,12 +936,20 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
-        indexes_query = """
+        has_partial_indices = self.server_version_info >= (5,)
+        condition_source_expr = (
+            "TRIM(SUBSTRING(ix.rdb$condition_source FROM 6 FOR CHAR_LENGTH(ix.rdb$condition_source) - 5))"
+            if has_partial_indices
+            else "CAST(NULL AS BLOB SUB_TYPE 1)"
+        )
+
+        indexes_query = f"""
             SELECT TRIM(ix.rdb$index_name) AS index_name,
                    ix.rdb$unique_flag AS unique_flag,
                    ix.rdb$index_type AS descending_flag,
                    TRIM(ic.rdb$field_name) AS field_name,
-                   TRIM(ix.rdb$expression_source) expression_source
+                   TRIM(ix.rdb$expression_source) expression_source,
+                   {condition_source_expr} condition_source
             FROM rdb$indices ix
                 LEFT OUTER JOIN rdb$index_segments ic
                   ON ic.rdb$index_name = ix.rdb$index_name
@@ -929,14 +974,16 @@ class FBDialect(default.DefaultDialect):
             if "name" not in indexrec:
                 indexrec["name"] = self.normalize_name(row.index_name)
                 indexrec["column_names"] = []
-                indexrec["dialect_options"] = {}
                 indexrec["unique"] = bool(row.unique_flag)
-                indexrec["descending"] = bool(row.descending_flag)
                 if row.expression_source is not None:
                     expr = row.expression_source[
                         1:-1
                     ]  # Remove outermost parenthesis added by Firebird
                     indexrec["expressions"] = expr.split(EXPRESSION_SEPARATOR)
+                indexrec["dialect_options"] = {
+                    "firebird_descending": bool(row.descending_flag),
+                    "firebird_where": row.condition_source,
+                }
 
             indexrec["column_names"].append(
                 self.normalize_name(row.field_name)
@@ -990,9 +1037,9 @@ class FBDialect(default.DefaultDialect):
                    ON rc.rdb$index_name = se.rdb$index_name
                  JOIN rdb$relations r
                    ON r.rdb$relation_name = rc.rdb$relation_name
-                  AND r.rdb$system_flag = 0
-            WHERE rc.rdb$constraint_type = 'UNIQUE' AND
-                  r.rdb$relation_name = ?
+                  AND COALESCE(r.rdb$system_flag, 0) = 0
+            WHERE rc.rdb$constraint_type = 'UNIQUE'
+              AND r.rdb$relation_name = ?
             ORDER BY rc.rdb$constraint_name, se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
@@ -1049,7 +1096,7 @@ class FBDialect(default.DefaultDialect):
                       tr.rdb$trigger_type = 1 /* BEFORE UPDATE */
             WHERE rc.rdb$constraint_type = 'CHECK' AND
                   rc.rdb$relation_name = ?
-            ORDER BY rc.rdb$constraint_name
+            ORDER BY 1
         """
         tablename = self.denormalize_name(table_name)
         c = connection.exec_driver_sql(check_constraints_query, (tablename,))
@@ -1080,6 +1127,31 @@ class FBDialect(default.DefaultDialect):
             if self.using_sqlalchemy2
             else []
         )
+
+    @reflection.cache
+    def _load_domains(self, connection, schema=None, **kw):
+        domains_query = """
+            SELECT TRIM(f.rdb$field_name) AS fname,
+                   f.rdb$null_flag AS null_flag,
+                   NULLIF(TRIM(SUBSTRING(f.rdb$default_source FROM 8 FOR CHAR_LENGTH(f.rdb$default_source) - 7)), 'NULL') fdefault,
+                   TRIM(SUBSTRING(f.rdb$validation_source FROM 8 FOR CHAR_LENGTH(f.rdb$validation_source) - 8)) fcheck,
+                   TRIM(f.rdb$description) fcomment
+            FROM rdb$fields f
+            WHERE COALESCE(f.rdb$system_flag, 0) = 0
+              AND f.rdb$field_name NOT STARTING WITH 'RDB$'
+            ORDER BY 1
+        """
+        result = connection.exec_driver_sql(domains_query)
+        return [
+            {
+                "name": self.normalize_name(row["fname"]),
+                "nullable": not bool(row.null_flag),
+                "default": row["fdefault"],
+                "check": row["fcheck"],
+                "comment": row["fcomment"],
+            }
+            for row in result.mappings()
+        ]
 
     def is_disconnect(self, e, connection, cursor):
         is_fdb = self.driver == "fdb"

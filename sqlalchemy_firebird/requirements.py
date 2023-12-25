@@ -365,7 +365,7 @@ class Requirements(SuiteRequirements):
         """target platform supports INSERT with no values, i.e.
         INSERT DEFAULT VALUES or equivalent."""
 
-        return self.firebird_4_or_higher()
+        return self.firebird_4_or_higher
 
     @property
     def empty_inserts_executemany(self):
@@ -379,7 +379,7 @@ class Requirements(SuiteRequirements):
         """target platform supports INSERT from a SELECT."""
 
         # Avoids hanging tests on Firebird 2.5
-        return self.firebird_3_or_higher()
+        return self.firebird_3_or_higher
 
     @property
     def delete_returning(self):
@@ -648,7 +648,7 @@ class Requirements(SuiteRequirements):
         """Indicates if the database support table comment reflection in the
         full unicode range, including emoji etc.
         """
-        return self.firebird_4_or_higher()
+        return self.firebird_4_or_higher
 
     @property
     def constraint_comment_reflection(self):
@@ -869,7 +869,7 @@ class Requirements(SuiteRequirements):
         datetime.datetime() with tzinfo with DateTime(timezone=True)."""
 
         # Time zone support added in Firebird 4.
-        return self.firebird_4_or_higher()
+        return self.firebird_4_or_higher
 
     @property
     def time_timezone(self):
@@ -1137,7 +1137,7 @@ class Requirements(SuiteRequirements):
         to represent very large values."""
 
         # Increased maximum precision of NUMERIC and DECIMAL to 38 digits in Firebird 4.
-        return self.firebird_4_or_higher()
+        return self.firebird_4_or_higher
 
     @property
     def precision_numerics_many_significant_digits(self):
@@ -1695,7 +1695,7 @@ class Requirements(SuiteRequirements):
     def identity_columns(self):
         """If a backend supports GENERATED { ALWAYS | BY DEFAULT }
         AS IDENTITY"""
-        return self.firebird_3_or_higher()
+        return self.firebird_3_or_higher
 
     @property
     def identity_columns_standard(self):
@@ -1703,7 +1703,7 @@ class Requirements(SuiteRequirements):
         AS IDENTITY with a standard syntax.
         This is mainly to exclude MSSql.
         """
-        return self.firebird_3_or_higher()
+        return self.firebird_3_or_higher
 
     @property
     def regexp_match(self):
@@ -1758,7 +1758,7 @@ class Requirements(SuiteRequirements):
         """
 
         # Disables entire IdentityAutoincrementTest on Firebird 2.5 (does not have autoincrement)
-        return self.firebird_3_or_higher()
+        return self.firebird_3_or_higher
 
     @property
     def generic_classes(self):
@@ -1802,16 +1802,29 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()
 
     #
-    # Helpers
+    # Firebird helpers
     #
+    @property
     def firebird_3_or_higher(self):
         return exclusions.skip_if(
             lambda config: config.db.dialect.server_version_info < (3,),
             "Only supported in Firebird 3.0+.",
         )
 
+    @property
     def firebird_4_or_higher(self):
         return exclusions.skip_if(
             lambda config: config.db.dialect.server_version_info < (4,),
             "Only supported in Firebird 4.0+.",
         )
+
+    @property
+    def firebird_5_or_higher(self):
+        return exclusions.skip_if(
+            lambda config: config.db.dialect.server_version_info < (5,),
+            "Only supported in Firebird 5.0+.",
+        )
+
+    @property
+    def partial_indices(self):
+        return self.firebird_5_or_higher
