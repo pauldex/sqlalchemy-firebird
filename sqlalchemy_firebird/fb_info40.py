@@ -3,7 +3,6 @@
     Variables:
         MAX_IDENTIFIER_LENGTH -> int
         RESERVED_WORDS -> set
-        ISCHEMA_NAMES -> dict
 
 .._Firebird 4.0:
     https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html
@@ -242,53 +241,4 @@ RESERVED_WORDS = {
     "with",
     "without",
     "year",
-}
-
-# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref50/firebird-50-language-reference.html#fblangref50-datatypes-syntax-scalar
-# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-datatypes-syntax-scalar
-ISCHEMA_NAMES = {
-    "SMALLINT": sa_types.SMALLINT,
-    "INT": sa_types.INTEGER,
-    "INTEGER": sa_types.INTEGER,
-    "BIGINT": sa_types.BIGINT,
-    "INT128": sa_types.BIGINT,  # TODO: INT128
-    "REAL": sa_types.REAL,
-    "FLOAT": sa_types.FLOAT,
-    "DOUBLE PRECISION": sa_types.FLOAT,
-    "DECFLOAT": sa_types.FLOAT,  # TODO: DECFLOAT
-    "BOOLEAN": sa_types.BOOLEAN,
-    "DATE": sa_types.DATE,
-    "TIME": sa_types.TIME,
-    "TIME WITH TIME ZONE": sa_types.TIME,
-    "TIME WITHOUT TIME ZONE": sa_types.TIME,
-    "TIMESTAMP": sa_types.TIMESTAMP,
-    "TIMESTAMP WITH TIME ZONE": sa_types.TIMESTAMP,
-    "TIMESTAMP WITHOUT TIME ZONE": sa_types.TIMESTAMP,
-    "DECIMAL": sa_types.NUMERIC,
-    "NUMERIC": sa_types.NUMERIC,
-    "VARCHAR": sa_types.VARCHAR,
-    "CHAR VARYING": sa_types.VARCHAR,
-    "CHARACTER VARYING": sa_types.VARCHAR,
-    "CHAR": sa_types.CHAR,
-    "CHARACTER": sa_types.CHAR,
-    "BINARY": sa_types.BINARY,
-    "VARBINARY": sa_types.VARBINARY,
-    "BINARY VARYING": sa_types.VARBINARY,
-    # Compatibility
-    "SHORT": sa_types.SMALLINT,
-    "LONG": sa_types.INTEGER,
-    "QUAD": sa_types.FLOAT,
-    "TEXT": sa_types.TEXT,
-    "INT64": sa_types.BIGINT,
-    "LONG FLOAT": sa_types.FLOAT,
-    "DOUBLE": sa_types.FLOAT,
-    "VARYING": sa_types.VARCHAR,
-    "CSTRING": sa_types.CHAR,
-    "BLOB": sa_types.BLOB,
-    "NCHAR VARYING": sa_types.VARCHAR,
-    "NATIONAL CHAR VARYING": sa_types.VARCHAR,
-    "NATIONAL CHARACTER VARYING": sa_types.VARCHAR,
-    "NCHAR": sa_types.CHAR,
-    "NATIONAL CHAR": sa_types.CHAR,
-    "NATIONAL CHARACTER": sa_types.CHAR,
 }

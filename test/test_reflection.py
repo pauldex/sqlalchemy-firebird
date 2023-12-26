@@ -24,13 +24,14 @@ from sqlalchemy.testing.assertions import eq_
 from sqlalchemy.testing.assertions import is_
 from sqlalchemy.testing.assertions import is_true
 
-
 from sqlalchemy import MetaData
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy.testing import AssertsExecutionResults
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
+
+from sqlalchemy_firebird.types import _FBINTEGER
 
 
 #
@@ -173,7 +174,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
     def test_quoted_domain_is_reflected(self, connection):
         metadata = MetaData()
         table = Table("quote_test", metadata, autoload_with=connection)
-        eq_(table.c.data.type.__class__, Integer)
+        eq_(table.c.data.type.__class__, _FBINTEGER)
 
     @property
     def all_domains(self):

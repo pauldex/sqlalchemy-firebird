@@ -377,12 +377,6 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_datetime(self, type_, **kw):
         return self.visit_TIMESTAMP(type_, **kw)
 
-    def visit_TEXT(self, type_, **kw):
-        return "BLOB SUB_TYPE 1"
-
-    def visit_BLOB(self, type_, **kw):
-        return "BLOB SUB_TYPE 0"
-
     def _render_string_type(self, type_, name, length_override=None):
         length = coalesce(
             length_override,
@@ -534,12 +528,37 @@ class FBDialect(default.DefaultDialect):
         sa_types.Date: fb_types._FBDATE,
         sa_types.Time: fb_types._FBTIME,
         sa_types.DateTime: fb_types._FBTIMESTAMP,
+        sa_types.Interval: fb_types._FBInterval,
         sa_types.BigInteger: fb_types._FBBIGINT,
         sa_types.Integer: fb_types._FBINTEGER,
         sa_types.SmallInteger: fb_types._FBSMALLINT,
-        sa_types.BINARY: fb_types._FBBINARY,
-        sa_types.VARBINARY: fb_types._FBVARBINARY,
-        sa_types.LargeBinary: fb_types._FBVARBINARY,
+        sa_types.BINARY: fb_types._FBLargeBinary,
+        sa_types.VARBINARY: fb_types._FBLargeBinary,
+        sa_types.LargeBinary: fb_types._FBLargeBinary,
+    }
+
+    # SELECT TRIM(rdb$type_name) FROM rdb$types WHERE rdb$field_name = 'RDB$FIELD_TYPE' ORDER BY 1
+    ischema_names = {
+        "BLOB": fb_types._FBLargeBinary,
+        # "BLOB_ID": unused
+        "BOOLEAN": fb_types._FBBOOLEAN,
+        "CSTRING": fb_types._FBVARCHAR,
+        "DATE": fb_types._FBDATE,
+        "DECFLOAT(16)": fb_types._FBDECFLOAT,
+        "DECFLOAT(34)": fb_types._FBDECFLOAT,
+        "DOUBLE": fb_types._FBDOUBLE_PRECISION,
+        "FLOAT": fb_types._FBFLOAT,
+        "INT128": fb_types._FBINT128,
+        "INT64": fb_types._FBBIGINT,
+        "LONG": fb_types._FBINTEGER,
+        # "QUAD": unused,
+        "SHORT": fb_types._FBSMALLINT,
+        "TEXT": fb_types._FBCHAR,
+        "TIME": fb_types._FBTIME,
+        "TIME WITH TIME ZONE": fb_types._FBTIME,
+        "TIMESTAMP": fb_types._FBTIMESTAMP,
+        "TIMESTAMP WITH TIME ZONE": fb_types._FBTIMESTAMP,
+        "VARYING": fb_types._FBVARCHAR,
     }
 
     construct_arguments = [
@@ -571,26 +590,22 @@ class FBDialect(default.DefaultDialect):
             from .fb_info25 import (
                 MAX_IDENTIFIER_LENGTH,
                 RESERVED_WORDS,
-                ISCHEMA_NAMES,
             )
         elif self.server_version_info < (4,):
             # Firebird 3.0
             from .fb_info30 import (
                 MAX_IDENTIFIER_LENGTH,
                 RESERVED_WORDS,
-                ISCHEMA_NAMES,
             )
         else:
             # Firebird 4.0 or higher
             from .fb_info40 import (
                 MAX_IDENTIFIER_LENGTH,
                 RESERVED_WORDS,
-                ISCHEMA_NAMES,
             )
 
         self.max_identifier_length = MAX_IDENTIFIER_LENGTH
         self.preparer.reserved_words = RESERVED_WORDS
-        self.ischema_names = ISCHEMA_NAMES
 
     @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
@@ -692,22 +707,21 @@ class FBDialect(default.DefaultDialect):
         self, connection, table_name, schema=None, **kw
     ):
         is_firebird_25 = self.server_version_info < (3,)
-        is_firebird_3_or_lower = self.server_version_info < (4,)
 
         columns_query = """
             SELECT TRIM(r.rdb$field_name) AS fname,
                    COALESCE(r.rdb$null_flag, f.rdb$null_flag) AS null_flag,
-                   t.rdb$type_name AS ftype,
+                   TRIM(t.rdb$type_name) AS ftype,
                    f.rdb$field_sub_type AS stype,
                    f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
                    f.rdb$field_precision AS fprec,
-                   f.rdb$field_scale AS fscale,
+                   f.rdb$field_scale * -1 AS fscale,
                    COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
                    TRIM(r.rdb$description) AS fcomment,
-                   f.rdb$computed_source AS computed_source,
-                   r.rdb$identity_type AS identity_type,
-                   g.rdb$initial_value AS identity_start,
-                   g.rdb$generator_increment AS identity_increment
+                   f.rdb$computed_source AS computed_source
+                  ,r.rdb$identity_type AS identity_type,                     -- [fb3+]
+                   g.rdb$initial_value AS identity_start,                    -- [fb3+]
+                   g.rdb$generator_increment AS identity_increment           -- [fb3+]
             FROM rdb$relation_fields r
                  JOIN rdb$fields f
                    ON f.rdb$field_name = r.rdb$field_source
@@ -716,8 +730,8 @@ class FBDialect(default.DefaultDialect):
                   AND t.rdb$field_name = 'RDB$FIELD_TYPE'
                  LEFT JOIN rdb$character_sets cs
                         ON cs.rdb$character_set_id = f.rdb$character_set_id
-                 LEFT JOIN rdb$generators g
-                        ON g.rdb$generator_name = r.rdb$generator_name
+                 LEFT JOIN rdb$generators g                                  -- [fb3+]
+                        ON g.rdb$generator_name = r.rdb$generator_name       -- [fb3+]
             WHERE COALESCE(f.rdb$system_flag, 0) = 0
               AND r.rdb$relation_name = ?
             ORDER BY r.rdb$field_position
@@ -725,29 +739,10 @@ class FBDialect(default.DefaultDialect):
 
         if is_firebird_25:
             # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
-            columns_query = """
-                SELECT TRIM(r.rdb$field_name) AS fname,
-                       COALESCE(r.rdb$null_flag, f.rdb$null_flag) AS null_flag,
-                       t.rdb$type_name AS ftype,
-                       f.rdb$field_sub_type AS stype,
-                       f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
-                       f.rdb$field_precision AS fprec,
-                       f.rdb$field_scale AS fscale,
-                       COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
-                       TRIM(r.rdb$description) AS fcomment,
-                       f.rdb$computed_source AS computed_source
-                FROM rdb$relation_fields r
-                     JOIN rdb$fields f 
-                       ON f.rdb$field_name = r.rdb$field_source
-                     JOIN rdb$types t
-                       ON t.rdb$type = f.rdb$field_type
-                      AND t.rdb$field_name = 'RDB$FIELD_TYPE'
-                      LEFT JOIN rdb$character_sets cs
-                             ON cs.rdb$character_set_id = f.rdb$character_set_id
-                WHERE COALESCE(f.rdb$system_flag, 0) = 0
-                  AND r.rdb$relation_name = ?
-                ORDER BY r.rdb$field_position
-            """
+            #   Remove query lines containing [fb3+]
+            lines = str.splitlines(columns_query)
+            filtered = filter(lambda x: "[fb3+]" not in x, lines)
+            columns_query = "\r\n".join(list(filtered))
 
         tablename = self.denormalize_name(table_name)
         c = list(connection.exec_driver_sql(columns_query, (tablename,)))
@@ -758,28 +753,33 @@ class FBDialect(default.DefaultDialect):
             colname = self.normalize_name(orig_colname)
 
             # Extract data type
-            colspec = row.ftype.rstrip()
-            coltype = self.ischema_names.get(colspec)
-            if coltype is None:
+            colclass = self.ischema_names.get(row.ftype)
+            if colclass is None:
                 util.warn(
-                    "Did not recognize type '%s' of column '%s'"
-                    % (colspec, colname)
+                    "Unknown type '%s' in column '%s'. Check FBDialect.ischema_names."
+                    % (row.ftype, colname)
                 )
                 coltype = sa_types.NULLTYPE
-            elif issubclass(coltype, sa_types.Integer) and row.fprec != 0:
-                coltype = sa_types.NUMERIC(
-                    precision=row.fprec, scale=row.fscale * -1
+            elif issubclass(colclass, fb_types._FBString):
+                # ToDo: Add charset, collation
+                coltype = colclass(length=row.flen)
+            elif issubclass(colclass, fb_types._FBInteger) and row.fprec != 0:
+                # NUMERIC / DECIMAL types are stored as INTEGER types
+                coltype = fb_types._FBNumeric(
+                    precision=row.fprec, scale=row.fscale
                 )
-            elif colspec in ("VARYING", "CSTRING"):
-                coltype = coltype(row.flen)
-            elif colspec == "TEXT":
-                coltype = sa_types.TEXT(row.flen)
-            elif colspec == "BLOB":
+            elif issubclass(colclass, sa_types.DateTime):
+                has_timezone = "WITH TIME ZONE" in row.ftype
+                coltype = colclass(timezone=has_timezone)
+            elif issubclass(colclass, fb_types._FBLargeBinary):
+                # Todo: Add blob parameters (segment_size, etc)
                 coltype = (
-                    sa_types.TEXT() if row.stype == 1 else sa_types.BLOB()
+                    fb_types._FBTEXT(row.flen)
+                    if row.stype == 1
+                    else fb_types._FBBLOB(row.flen)
                 )
             else:
-                coltype = coltype()
+                coltype = colclass()
 
             # Extract default value
             defvalue = None
@@ -940,7 +940,7 @@ class FBDialect(default.DefaultDialect):
         condition_source_expr = (
             "TRIM(SUBSTRING(ix.rdb$condition_source FROM 6 FOR CHAR_LENGTH(ix.rdb$condition_source) - 5))"
             if has_partial_indices
-            else "CAST(NULL AS BLOB SUB_TYPE 1)"
+            else "CAST(NULL AS BLOB SUB_TYPE TEXT)"
         )
 
         indexes_query = f"""
