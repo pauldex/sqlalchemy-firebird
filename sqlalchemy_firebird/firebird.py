@@ -113,7 +113,6 @@ class FBDialect_firebird(FBDialect):
             if self.using_sqlalchemy2
             else connection.connection
         )
-
         minor, major = modf(dbapi_connection.info.engine_version)
         return (int(major), int(minor * 10))
 

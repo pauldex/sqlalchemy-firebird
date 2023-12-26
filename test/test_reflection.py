@@ -774,7 +774,7 @@ class IdentityReflectionTest(fixtures.TablesTest):
 
     @testing.combinations(*_names, argnames="name")
     def test_reflect_identity(self, connection, name):
-        firebird_4_or_higher = connection.dialect.server_version_info >= (4,)
+        firebird_4_or_higher = testing.requires.firebird_4_or_higher.enabled
 
         insp = inspect(connection)
         expected = dict(

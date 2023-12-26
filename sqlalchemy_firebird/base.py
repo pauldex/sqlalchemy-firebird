@@ -584,25 +584,16 @@ class FBDialect(default.DefaultDialect):
 
         if self.server_version_info < (3,):
             # Firebird 2.5
+            from .fb_info25 import MAX_IDENTIFIER_LENGTH, RESERVED_WORDS
+
             self.supports_identity_columns = False
             self.supports_native_boolean = False
-
-            from .fb_info25 import (
-                MAX_IDENTIFIER_LENGTH,
-                RESERVED_WORDS,
-            )
         elif self.server_version_info < (4,):
             # Firebird 3.0
-            from .fb_info30 import (
-                MAX_IDENTIFIER_LENGTH,
-                RESERVED_WORDS,
-            )
+            from .fb_info30 import MAX_IDENTIFIER_LENGTH, RESERVED_WORDS
         else:
             # Firebird 4.0 or higher
-            from .fb_info40 import (
-                MAX_IDENTIFIER_LENGTH,
-                RESERVED_WORDS,
-            )
+            from .fb_info40 import MAX_IDENTIFIER_LENGTH, RESERVED_WORDS
 
         self.max_identifier_length = MAX_IDENTIFIER_LENGTH
         self.preparer.reserved_words = RESERVED_WORDS
@@ -706,8 +697,6 @@ class FBDialect(default.DefaultDialect):
     def get_columns(  # noqa: C901
         self, connection, table_name, schema=None, **kw
     ):
-        is_firebird_25 = self.server_version_info < (3,)
-
         columns_query = """
             SELECT TRIM(r.rdb$field_name) AS fname,
                    COALESCE(r.rdb$null_flag, f.rdb$null_flag) AS null_flag,
@@ -737,7 +726,8 @@ class FBDialect(default.DefaultDialect):
             ORDER BY r.rdb$field_position
         """
 
-        if is_firebird_25:
+        has_identity_columns = self.server_version_info >= (3,)
+        if not has_identity_columns:
             # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
             #   Remove query lines containing [fb3+]
             lines = str.splitlines(columns_query)
@@ -811,7 +801,7 @@ class FBDialect(default.DefaultDialect):
             if row.fcomment is not None:
                 col_d["comment"] = row.fcomment
 
-            if (not is_firebird_25) and row.identity_type is not None:
+            if has_identity_columns and row.identity_type is not None:
                 col_d["identity"] = {
                     "always": row.identity_type == 0,
                     "start": row.identity_start,
@@ -936,12 +926,11 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
-        has_partial_indices = self.server_version_info >= (5,)
-        condition_source_expr = (
-            "TRIM(SUBSTRING(ix.rdb$condition_source FROM 6 FOR CHAR_LENGTH(ix.rdb$condition_source) - 5))"
-            if has_partial_indices
-            else "CAST(NULL AS BLOB SUB_TYPE TEXT)"
-        )
+        condition_source_expr = "TRIM(SUBSTRING(ix.rdb$condition_source FROM 6 FOR CHAR_LENGTH(ix.rdb$condition_source) - 5))"
+
+        if self.server_version_info < (5,):
+            # Firebird 4 and lower doesn't have RDB$CONDITION_SOURCE (for partial indices)
+            condition_source_expr = "CAST(NULL AS BLOB SUB_TYPE TEXT)"
 
         indexes_query = f"""
             SELECT TRIM(ix.rdb$index_name) AS index_name,

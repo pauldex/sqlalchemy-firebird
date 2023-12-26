@@ -305,25 +305,19 @@ class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
 
 
 class IdentityColumnTest(_IdentityColumnTest):
-    @testing.skip_if(
-        lambda config: config.db.dialect.server_version_info < (4,),
-        "GENERATED ALWAYS AS IDENTITY columns are supported only in Firebird 4.0+",
-    )
+    @testing.requires.firebird_4_or_higher
     def test_select_all(self, connection):
         super().test_select_all(connection)
 
-    @testing.skip_if(
-        lambda config: config.db.dialect.server_version_info < (4,),
-        "GENERATED ALWAYS AS IDENTITY columns are supported only in Firebird 4.0+",
-    )
+    @testing.requires.firebird_4_or_higher
     def test_insert_always_error(self, connection):
         super().test_insert_always_error(connection)
 
     def test_select_columns(self, connection):
         # Clone of super().test_select_columns adjusted for Firebird.
-        is_firebird_3_or_lower = config.db.dialect.server_version_info < (4,)
         expected = [(42,), (43,)]
-        if is_firebird_3_or_lower:
+
+        if config.db.dialect.server_version_info < (4,):
             # Firebird 3 has distinct START WITH semantic.
             # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
             expected = [(43,), (44,)]
@@ -386,10 +380,7 @@ class IdentityReflectionTest(_IdentityReflectionTest):
                     approx=True,
                 )
 
-    @testing.skip_if(
-        lambda config: config.db.dialect.server_version_info < (4,),
-        "GENERATED ALWAYS AS IDENTITY columns are supported only in Firebird 4.0+",
-    )
+    @testing.requires.firebird_4_or_higher
     def test_reflect_identity_v4(self):
         insp = inspect(config.db)
 
@@ -455,10 +446,7 @@ class InsertBehaviorTest(_InsertBehaviorTest):
 
 
 class RowCountTest(_RowCountTest):
-    @testing.skip_if(
-        lambda config: config.db.dialect.server_version_info < (5,),
-        "Multiple rows UPDATE/DELETE RETURNING are supported only in Firebird 5.0+",
-    )
+    @testing.requires.firebird_5_or_higher
     @testing.variation("implicit_returning", [True, False])
     @testing.variation(
         "dml",
@@ -476,19 +464,13 @@ class RowCountTest(_RowCountTest):
 
 
 class SimpleUpdateDeleteTest(_SimpleUpdateDeleteTest):
-    @testing.skip_if(
-        lambda config: config.db.dialect.server_version_info < (5,),
-        "Multiple rows UPDATE RETURNING are supported only in Firebird 5.0+",
-    )
+    @testing.requires.firebird_5_or_higher
     @testing.variation("criteria", ["rows", "norows", "emptyin"])
     @testing.requires.update_returning
     def test_update_returning(self, connection, criteria):
         super().test_update_returning(connection, criteria)
 
-    @testing.skip_if(
-        lambda config: config.db.dialect.server_version_info < (5,),
-        "Multiple rows DELETE RETURNING are supported only in Firebird 5.0+",
-    )
+    @testing.requires.firebird_5_or_higher
     @testing.variation("criteria", ["rows", "norows", "emptyin"])
     @testing.requires.delete_returning
     def test_delete_returning(self, connection, criteria):
