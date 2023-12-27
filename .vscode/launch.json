@@ -9,9 +9,12 @@
             "type": "python",
             "request": "launch",
             "module": "pytest",
-
-            "args": ["./test/test_suite.py::NormalizedNameTest", "-k", "test_get_table_names", "--db", "firebird_fb50"],
-
+            "env": {"CI": "True"},
+            "args": [
+                "./test/test_suite.py::NormalizedNameTest::test_get_table_names",
+                "--db",
+                "firebird_fb50"
+            ],
             "justMyCode": false
         },
         {
@@ -19,9 +22,8 @@
             "name": "Debug Unit Test",
             "type": "python",
             "request": "launch",
-            
             "console": "integratedTerminal",
-            "purpose":["debug-test"],
+            "purpose": ["debug-test"],
             "justMyCode": false
         }
     ]

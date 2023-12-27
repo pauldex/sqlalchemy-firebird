@@ -82,6 +82,9 @@ $extraArgs = @(
 # Set console width in chars
 [console]::WindowWidth=300
 
+# pytest: do not truncate error messages -- https://github.com/pytest-dev/pytest/issues/9920
+$env:CI = 'True' 
+
 $host.ui.RawUI.WindowTitle = "[$db]: (Running...)"
 & pytest $launchArgs --db $db $extraArgs 2>$null | Tee-Object -Variable testOutput
 $pytestExitCode = $LASTEXITCODE
