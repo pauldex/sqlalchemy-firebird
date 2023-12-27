@@ -133,6 +133,12 @@ class _FBTEXT(_FBLargeBinary, sqltypes.TEXT):
         super().__init__(length, 1, segment_size, charset, collation, **kwargs)
 
 
+class _FBNumericInterval(_FBNumeric):
+    # NUMERIC(18,9) -- Used for _FBInterval storage
+    def __init__(self):
+        super().__init__(precision=18, scale=9)
+
+
 class _FBInterval(sqltypes.Interval):
     """A type for ``datetime.timedelta()`` objects.
 
@@ -142,7 +148,8 @@ class _FBInterval(sqltypes.Interval):
     # ToDo: Fix operations with TIME datatype (operand must be in seconds, not in days)
     #   https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref50/firebird-50-language-reference.html#fblangref50-datatypes-datetimeops
 
-    impl = sqltypes.Numeric
+    impl = _FBNumericInterval
+    cache_ok = True
 
     def __init__(self):
         super().__init__(native=False)

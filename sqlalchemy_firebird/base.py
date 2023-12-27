@@ -53,7 +53,6 @@ class FBCompiler(sql.compiler.SQLCompiler):
 
     def for_update_clause(self, select, **kw):
         tmp = " FOR UPDATE"
-
         if select._for_update_arg.nowait:
             tmp += " WITH LOCK"
         if select._for_update_arg.skip_locked:
@@ -488,7 +487,7 @@ class FBDialect(default.DefaultDialect):
     supports_sane_rowcount = True
     supports_sane_multi_rowcount = False
 
-    supports_native_boolean = True
+    supports_native_boolean = True  # False for Firebird 2.5
     supports_native_decimal = True
 
     supports_schemas = False
@@ -498,10 +497,10 @@ class FBDialect(default.DefaultDialect):
     use_insertmanyvalues = False
 
     supports_comments = True
-    inline_comments = False
     supports_default_values = True
     supports_default_metavalue = True
-    supports_identity_columns = True
+    supports_empty_insert = False
+    supports_identity_columns = True  # False for Firebird 2.5
 
     statement_compiler = FBCompiler
     ddl_compiler = FBDDLCompiler
@@ -515,10 +514,11 @@ class FBDialect(default.DefaultDialect):
     delete_returning = True
     insert_returning = True
 
-    requires_name_normalize = True
     supports_unicode_binds = True
     supports_empty_insert = False
     supports_is_distinct_from = True
+
+    requires_name_normalize = True
 
     colspecs = {
         sa_types.String: fb_types._FBString,
@@ -801,16 +801,22 @@ class FBDialect(default.DefaultDialect):
             if row.fcomment is not None:
                 col_d["comment"] = row.fcomment
 
-            if has_identity_columns and row.identity_type is not None:
-                col_d["identity"] = {
-                    "always": row.identity_type == 0,
-                    "start": row.identity_start,
-                    "increment": row.identity_increment,
-                }
+            if has_identity_columns:
+                if row.identity_type is not None:
+                    col_d["identity"] = {
+                        "always": row.identity_type == 0,
+                        "start": row.identity_start,
+                        "increment": row.identity_increment,
+                    }
 
-            if not self.using_sqlalchemy2:
-                # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
-                col_d["autoincrement"] = "auto"
+                col_d["autoincrement"] = "identity" in col_d
+            else:
+                # For Firebird 2.5
+
+                # A backend is better off not returning "autoincrement" at all,
+                # instead of potentially returning "False" for an auto-incrementing
+                # primary key column. (see test_autoincrement_col)
+                pass
 
             cols.append(col_d)
 

@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import BigInteger
 from sqlalchemy import Column
 from sqlalchemy import exc
@@ -9,6 +10,7 @@ from sqlalchemy import Integer
 from sqlalchemy import join
 from sqlalchemy import MetaData
 from sqlalchemy import PrimaryKeyConstraint
+from sqlalchemy import Sequence
 from sqlalchemy import SmallInteger
 from sqlalchemy import String
 from sqlalchemy import Table
@@ -269,6 +271,8 @@ class ReflectionTest(
             )
         )
 
+    # This test fails on Firebird 2.5/fdb
+    @testing.requires.firebird_3_or_higher
     def test_reflect_default_over_128_chars(self, metadata, connection):
         Table(
             "t",
@@ -295,7 +299,7 @@ class ReflectionTest(
         user_tmp.create(connection)
         assert inspect(connection).has_table("some_temp_table")
 
-    def test_cross_schemone(self, metadata, connection):
+    def test_cross_schema_reflection_one(self, metadata, connection):
         meta1 = metadata
 
         users = Table(
@@ -413,6 +417,8 @@ class ReflectionTest(
             )
         )
 
+    # This test fails on Firebird 2.5/fdb
+    @testing.requires.firebird_3_or_higher
     def test_cross_schema_reflection_metadata_uses_schema(
         self, metadata, connection
     ):
@@ -438,30 +444,34 @@ class ReflectionTest(
             {"some_other_table", "test_schema$some_table"},
         )
 
-    # Wait for https://github.com/sqlalchemy/sqlalchemy/issues/10789 in SQLAlchemy 2.1
+    @pytest.mark.skip(
+        reason="Wait for https://github.com/sqlalchemy/sqlalchemy/issues/10789 in SQLAlchemy 2.1"
+    )
+    def test_uppercase_lowercase_table(self, metadata, connection):
+        a_table = Table("a", metadata, Column("x", Integer))
+        A_table = Table("A", metadata, Column("x", Integer))
 
-    # def test_uppercase_lowercase_table(self, metadata, connection):
-    #     a_table = Table("a", metadata, Column("x", Integer))
-    #     A_table = Table("A", metadata, Column("x", Integer))
+        A_table.create(connection, checkfirst=True)
+        assert inspect(connection).has_table("A")
+        a_table.create(connection)
+        assert inspect(connection).has_table("a")
+        assert not inspect(connection).has_table("A")
 
-    #     A_table.create(connection, checkfirst=True)
-    #     assert inspect(connection).has_table("A")
-    #     a_table.create(connection)
-    #     assert inspect(connection).has_table("a")
-    #     assert not inspect(connection).has_table("A")
+    @pytest.mark.skip(
+        reason="Wait for https://github.com/sqlalchemy/sqlalchemy/issues/10789 in SQLAlchemy 2.1"
+    )
+    def test_uppercase_lowercase_sequence(self, connection):
+        a_seq = Sequence("a")
+        A_seq = Sequence("A")
 
-    # def test_uppercase_lowercase_sequence(self, connection):
-    #     a_seq = Sequence("a")
-    #     A_seq = Sequence("A")
+        a_seq.create(connection)
+        assert connection.dialect.has_sequence(connection, "a")
+        assert not connection.dialect.has_sequence(connection, "A")
+        A_seq.create(connection, checkfirst=True)
+        assert connection.dialect.has_sequence(connection, "A")
 
-    #     a_seq.create(connection)
-    #     assert connection.dialect.has_sequence(connection, "a")
-    #     assert not connection.dialect.has_sequence(connection, "A")
-    #     A_seq.create(connection, checkfirst=True)
-    #     assert connection.dialect.has_sequence(connection, "A")
-
-    #     a_seq.drop(connection)
-    #     A_seq.drop(connection)
+        a_seq.drop(connection)
+        A_seq.drop(connection)
 
     def test_index_reflection(self, metadata, connection):
         """Reflecting expression-based indexes works"""

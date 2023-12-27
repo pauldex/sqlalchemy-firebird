@@ -10,12 +10,15 @@
     This driver uses new Firebird OO API provided by fbclient library.
 """  # noqa
 
+from datetime import datetime
+from datetime import time
 from math import modf
 from sqlalchemy import util
 from .base import FBDialect
 
 import firebird.driver
 from firebird.driver import driver_config
+from firebird.driver import get_timezone
 
 
 class FBDialect_firebird(FBDialect):
@@ -115,6 +118,20 @@ class FBDialect_firebird(FBDialect):
         )
         minor, major = modf(dbapi_connection.info.engine_version)
         return (int(major), int(minor * 10))
+
+    def adapt_timezone(self, param):
+        # Convert tzinfo for firebird-driver. Requires tzinfo.tzname() method implemented.
+        if isinstance(param, datetime) and param.tzinfo:
+            return param.replace(tzinfo=get_timezone(param.tzname()))
+        elif isinstance(param, time) and param.tzinfo:
+            return param.replace(tzinfo=get_timezone(param.tzname()))
+        return param
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+        # Firebird-driver needs special time zone handling.
+        #   https://github.com/FirebirdSQL/python3-driver/issues/19#issuecomment-1523045743
+        adapted_parameters = [self.adapt_timezone(p) for p in parameters]
+        super().do_execute(cursor, statement, adapted_parameters, context)
 
 
 def remove_keys(d, keys):

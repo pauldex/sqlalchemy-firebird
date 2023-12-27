@@ -17,34 +17,11 @@ from sqlalchemy.testing.suite import (
     DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest,
     IdentityColumnTest as _IdentityColumnTest,
     IdentityReflectionTest as _IdentityReflectionTest,
-    DateTimeTZTest as _DateTimeTZTest,
-    TimeTZTest as _TimeTZTest,
     StringTest as _StringTest,
     InsertBehaviorTest as _InsertBehaviorTest,
-    NumericTest as _NumericTest,
     RowCountTest as _RowCountTest,
     SimpleUpdateDeleteTest as _SimpleUpdateDeleteTest,
 )
-
-import sys
-
-if sys.version_info.major == 2:
-    try:
-        from firebird.driver.types import get_timezone
-    except ImportError:
-
-        def get_timezone(timezone=None):
-            # TODO:  fdb version implementation
-            pass
-
-else:
-    try:
-        from firebird.driver.types import get_timezone
-    except ImportError as e:
-
-        def get_timezone(timezone=None):
-            # TODO:  fdb version implementation
-            pass
 
 
 @pytest.mark.skip(
@@ -400,18 +377,6 @@ class IdentityReflectionTest(_IdentityReflectionTest):
                     ),
                     approx=False,
                 )
-
-
-# Firebird-driver needs special time zone handling.
-#   https://github.com/FirebirdSQL/python3-driver/issues/19#issuecomment-1523045743
-class DateTimeTZTest(_DateTimeTZTest):
-    data = datetime.datetime(
-        2012, 10, 15, 12, 57, 18, tzinfo=get_timezone("UTC")
-    )
-
-
-class TimeTZTest(_TimeTZTest):
-    data = datetime.time(12, 57, 18, tzinfo=get_timezone("UTC"))
 
 
 class StringTest(_StringTest):
