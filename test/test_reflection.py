@@ -35,7 +35,6 @@ from sqlalchemy.testing import fixtures
 
 from sqlalchemy_firebird.types import _FBINTEGER
 
-
 #
 # Tests from postgresql/test_reflection.py
 #
