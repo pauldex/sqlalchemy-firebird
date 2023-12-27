@@ -86,15 +86,9 @@ class _FBLargeBinary(sqltypes.LargeBinary):
     render_bind_cast = True
 
     def __init__(
-        self,
-        length=None,
-        subtype=0,
-        segment_size=None,
-        charset=None,
-        collation=None,
-        **kwargs,
+        self, subtype=None, segment_size=None, charset=None, collation=None
     ):
-        super().__init__(length, **kwargs)
+        super().__init__()
         self.subtype = subtype
         self.segment_size = segment_size
         self.charset = charset
@@ -108,29 +102,25 @@ class _FBLargeBinary(sqltypes.LargeBinary):
 
 
 class _FBBLOB(_FBLargeBinary, sqltypes.BLOB):
-    __visit_name__ = "BLOG SUB_TYPE BINARY"
+    __visit_name__ = "BLOB"
 
     def __init__(
         self,
-        length=None,
         segment_size=None,
-        **kwargs,
     ):
-        super().__init__(length, 0, segment_size, **kwargs)
+        super().__init__(0, segment_size)
 
 
 class _FBTEXT(_FBLargeBinary, sqltypes.TEXT):
-    __visit_name__ = "BLOG SUB_TYPE TEXT"
+    __visit_name__ = "BLOB"
 
     def __init__(
         self,
-        length=None,
         segment_size=None,
         charset=None,
         collation=None,
-        **kwargs,
     ):
-        super().__init__(length, 1, segment_size, charset, collation, **kwargs)
+        super().__init__(1, segment_size, charset, collation)
 
 
 class _FBNumericInterval(_FBNumeric):

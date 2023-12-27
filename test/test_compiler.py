@@ -17,7 +17,6 @@ from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import text
 from sqlalchemy import update
-from sqlalchemy.sql import literal_column
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL

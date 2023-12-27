@@ -394,6 +394,30 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
 
         return text
 
+    def visit_TEXT(self, type_, **kw):
+        return self.visit_BLOB(type_, override_subtype=1, **kw)
+
+    def visit_BLOB(self, type_, override_subtype=None, **kw):
+        text = "BLOB"
+
+        subtype = coalesce(override_subtype, getattr(type_, "subtype", None))
+        if subtype is not None:
+            text += " SUB_TYPE TEXT" if subtype == 1 else " SUB_TYPE BINARY"
+
+        segment_size = getattr(type_, "segment_size", None)
+        if segment_size is not None:
+            text += f" SEGMENT SIZE {segment_size}"
+
+        charset = getattr(type_, "charset", None)
+        if charset is not None:
+            text += f" CHARACTER SET {charset}"
+
+        collation = getattr(type_, "collation", None)
+        if collation is not None:
+            text += f" COLLATE {collation}"
+
+        return text
+
     def visit_NUMERIC(self, type_, **kw):
         return "NUMERIC(%(precision)s, %(scale)s)" % {
             "precision": coalesce(type_.precision, 18),
@@ -698,32 +722,38 @@ class FBDialect(default.DefaultDialect):
         self, connection, table_name, schema=None, **kw
     ):
         columns_query = """
-            SELECT TRIM(r.rdb$field_name) AS fname,
-                   COALESCE(r.rdb$null_flag, f.rdb$null_flag) AS null_flag,
-                   TRIM(t.rdb$type_name) AS ftype,
-                   f.rdb$field_sub_type AS stype,
-                   f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
-                   f.rdb$field_precision AS fprec,
-                   f.rdb$field_scale * -1 AS fscale,
-                   COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
-                   TRIM(r.rdb$description) AS fcomment,
+            SELECT TRIM(rf.rdb$field_name) AS field_name,
+                   COALESCE(rf.rdb$null_flag, f.rdb$null_flag) AS null_flag,
+                   TRIM(t.rdb$type_name) AS field_type,
+                   f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS field_length,
+                   f.rdb$field_precision AS field_precision,
+                   f.rdb$field_scale * -1 AS field_scale,
+                   f.rdb$field_sub_type AS field_sub_type,
+                   f.rdb$segment_length AS segment_length,
+                   TRIM(cs.rdb$character_set_name) as character_set_name,
+                   TRIM(cl.rdb$collation_name) as collation_name,
+                   COALESCE(rf.rdb$default_source, f.rdb$default_source) AS default_source,
+                   TRIM(rf.rdb$description) AS description,
                    f.rdb$computed_source AS computed_source
-                  ,r.rdb$identity_type AS identity_type,                     -- [fb3+]
-                   g.rdb$initial_value AS identity_start,                    -- [fb3+]
-                   g.rdb$generator_increment AS identity_increment           -- [fb3+]
-            FROM rdb$relation_fields r
+                  ,rf.rdb$identity_type AS identity_type,                      -- [fb3+]
+                   g.rdb$initial_value AS initial_value,                       -- [fb3+]
+                   g.rdb$generator_increment AS generator_increment            -- [fb3+]
+            FROM rdb$relation_fields rf
                  JOIN rdb$fields f
-                   ON f.rdb$field_name = r.rdb$field_source
+                   ON f.rdb$field_name = rf.rdb$field_source
                  JOIN rdb$types t
                    ON t.rdb$type = f.rdb$field_type 
                   AND t.rdb$field_name = 'RDB$FIELD_TYPE'
                  LEFT JOIN rdb$character_sets cs
                         ON cs.rdb$character_set_id = f.rdb$character_set_id
-                 LEFT JOIN rdb$generators g                                  -- [fb3+]
-                        ON g.rdb$generator_name = r.rdb$generator_name       -- [fb3+]
+                 LEFT JOIN rdb$collations cl
+                        ON cl.rdb$collation_id = rf.rdb$collation_id
+                       AND cl.rdb$character_set_id = cs.rdb$character_set_id
+                 LEFT JOIN rdb$generators g                                    -- [fb3+]
+                        ON g.rdb$generator_name = rf.rdb$generator_name        -- [fb3+]
             WHERE COALESCE(f.rdb$system_flag, 0) = 0
-              AND r.rdb$relation_name = ?
-            ORDER BY r.rdb$field_position
+              AND rf.rdb$relation_name = ?
+            ORDER BY rf.rdb$field_position
         """
 
         has_identity_columns = self.server_version_info >= (3,)
@@ -739,46 +769,51 @@ class FBDialect(default.DefaultDialect):
 
         cols = []
         for row in c:
-            orig_colname = row.fname
+            orig_colname = row.field_name
             colname = self.normalize_name(orig_colname)
 
             # Extract data type
-            colclass = self.ischema_names.get(row.ftype)
+            colclass = self.ischema_names.get(row.field_type)
             if colclass is None:
                 util.warn(
                     "Unknown type '%s' in column '%s'. Check FBDialect.ischema_names."
-                    % (row.ftype, colname)
+                    % (row.field_type, colname)
                 )
                 coltype = sa_types.NULLTYPE
             elif issubclass(colclass, fb_types._FBString):
                 # ToDo: Add charset, collation
-                coltype = colclass(length=row.flen)
-            elif issubclass(colclass, fb_types._FBInteger) and row.fprec != 0:
+                coltype = colclass(length=row.field_length)
+            elif (
+                issubclass(colclass, fb_types._FBInteger)
+                and row.field_precision != 0
+            ):
                 # NUMERIC / DECIMAL types are stored as INTEGER types
                 coltype = fb_types._FBNumeric(
-                    precision=row.fprec, scale=row.fscale
+                    precision=row.field_precision, scale=row.field_scale
                 )
             elif issubclass(colclass, sa_types.DateTime):
-                has_timezone = "WITH TIME ZONE" in row.ftype
+                has_timezone = "WITH TIME ZONE" in row.field_type
                 coltype = colclass(timezone=has_timezone)
             elif issubclass(colclass, fb_types._FBLargeBinary):
-                # Todo: Add blob parameters (segment_size, etc)
-                coltype = (
-                    fb_types._FBTEXT(row.flen)
-                    if row.stype == 1
-                    else fb_types._FBBLOB(row.flen)
-                )
+                if row.field_sub_type == 1:
+                    coltype = fb_types._FBTEXT(
+                        row.segment_length,
+                        row.character_set_name,
+                        row.collation_name,
+                    )
+                else:
+                    coltype = fb_types._FBBLOB(row.segment_length)
             else:
                 coltype = colclass()
 
             # Extract default value
             defvalue = None
-            if row.fdefault is not None:
+            if row.default_source is not None:
                 # the value comes down as "DEFAULT 'value'": there may be
                 # more than one whitespace around the "DEFAULT" keyword
                 # and it may also be lower case
                 # (see also http://tracker.firebirdsql.org/browse/CORE-356)
-                defexpr = row.fdefault.lstrip()
+                defexpr = row.default_source.lstrip()
                 assert defexpr[:8].rstrip().upper() == "DEFAULT", (
                     "Unrecognized default value: %s" % defexpr
                 )
@@ -798,15 +833,15 @@ class FBDialect(default.DefaultDialect):
             if row.computed_source is not None:
                 col_d["computed"] = {"sqltext": row.computed_source}
 
-            if row.fcomment is not None:
-                col_d["comment"] = row.fcomment
+            if row.description is not None:
+                col_d["comment"] = row.description
 
             if has_identity_columns:
                 if row.identity_type is not None:
                     col_d["identity"] = {
                         "always": row.identity_type == 0,
-                        "start": row.identity_start,
-                        "increment": row.identity_increment,
+                        "start": row.initial_value,
+                        "increment": row.generator_increment,
                     }
 
                 col_d["autoincrement"] = "identity" in col_d
