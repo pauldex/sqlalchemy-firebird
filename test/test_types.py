@@ -29,7 +29,7 @@ def eq_col(col: Column, expected_type, **expected_options):
 class TypesTest(fixtures.TestBase):
     @testing.provide_metadata
     def test_infinite_float(self, connection):
-        t = Table("t", self.metadata, Column("data", Float))
+        t = Table("test_infinite_float", self.metadata, Column("data", Float))
         self.metadata.create_all(testing.db)
         connection.execute(t.insert(), dict(data=float("inf")))
         eq_(connection.execute(t.select()).fetchall(), [(float("inf"),)])
@@ -37,7 +37,7 @@ class TypesTest(fixtures.TestBase):
     @testing.provide_metadata
     def test_blob_types(self, connection):
         t = Table(
-            "test_blob_options",
+            "test_blob_types",
             self.metadata,
             Column("b", sa_types.BLOB()),
             Column("fb", fb_types._FBBLOB()),
@@ -56,7 +56,7 @@ class TypesTest(fixtures.TestBase):
         self.metadata.create_all(testing.db)
 
         rm = MetaData()
-        rt = Table("test_blob_options", rm, autoload_with=testing.db)
+        rt = Table("test_blob_types", rm, autoload_with=testing.db)
 
         eq_col(rt.columns["b"], fb_types._FBBLOB)
         eq_col(rt.columns["fb"], fb_types._FBBLOB)
@@ -75,7 +75,7 @@ class TypesTest(fixtures.TestBase):
     @testing.provide_metadata
     def test_character_types(self, connection):
         t = Table(
-            "test_string_options",
+            "test_character_types",
             self.metadata,
             Column("c", sa_types.CHAR()),
             Column("cl", sa_types.CHAR(length=10)),
@@ -117,7 +117,7 @@ class TypesTest(fixtures.TestBase):
         self.metadata.create_all(testing.db)
 
         rm = MetaData()
-        rt = Table("test_string_options", rm, autoload_with=testing.db)
+        rt = Table("test_character_types", rm, autoload_with=testing.db)
 
         eq_col(rt.columns["c"], fb_types._FBCHAR),
         eq_col(rt.columns["cl"], fb_types._FBCHAR, length=10),
@@ -177,3 +177,36 @@ class TypesTest(fixtures.TestBase):
             charset=fb_types.NATIONAL_CHARSET,
         )
         eq_col(rt.columns["fnvcl"], fb_types._FBNVARCHAR, length=37),
+
+    @testing.provide_metadata
+    def test_integer_types(self, connection):
+        is_firebird_5_or_higher = testing.requires.firebird_5_or_higher.enabled
+        large_int_type = (
+            fb_types._FBINT128
+            if is_firebird_5_or_higher
+            else fb_types._FBBIGINT
+        )
+
+        t = Table(
+            "test_integer_types",
+            self.metadata,
+            Column("si", sa_types.SMALLINT),
+            Column("i", sa_types.INTEGER),
+            Column("bi", sa_types.BIGINT),
+            Column("fsi", fb_types._FBSMALLINT),
+            Column("fi", fb_types._FBINTEGER),
+            Column("fbi", fb_types._FBBIGINT),
+            Column("fli", large_int_type),
+        )
+        self.metadata.create_all(testing.db)
+
+        rm = MetaData()
+        rt = Table("test_integer_types", rm, autoload_with=testing.db)
+
+        eq_col(rt.columns["si"], fb_types._FBSMALLINT),
+        eq_col(rt.columns["i"], fb_types._FBINTEGER),
+        eq_col(rt.columns["bi"], fb_types._FBBIGINT),
+        eq_col(rt.columns["fsi"], fb_types._FBSMALLINT),
+        eq_col(rt.columns["fi"], fb_types._FBINTEGER),
+        eq_col(rt.columns["fbi"], fb_types._FBBIGINT),
+        eq_col(rt.columns["fli"], large_int_type),

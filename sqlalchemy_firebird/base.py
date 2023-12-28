@@ -462,6 +462,9 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
 
         return text
 
+    def visit_INT128(self, type_, **kw):
+        return "INT128"
+
     def visit_NUMERIC(self, type_, **kw):
         return "NUMERIC(%(precision)s, %(scale)s)" % {
             "precision": coalesce(type_.precision, 18),
