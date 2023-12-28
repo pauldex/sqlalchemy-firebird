@@ -465,6 +465,14 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_INT128(self, type_, **kw):
         return "INT128"
 
+    def visit_FLOAT(self, type_, **kw):
+        return "FLOAT" + (type_.precision and "(%d)" % type_.precision or "")
+
+    def visit_DECFLOAT(self, type_, **kw):
+        return "DECFLOAT" + (
+            type_.precision and "(%d)" % type_.precision or ""
+        )
+
     def visit_NUMERIC(self, type_, **kw):
         return "NUMERIC(%(precision)s, %(scale)s)" % {
             "precision": coalesce(type_.precision, 18),
@@ -845,14 +853,24 @@ class FBDialect(default.DefaultDialect):
                     charset=row.character_set_name,
                     collation=row.collation_name,
                 )
-            elif (
-                issubclass(colclass, fb_types._FBInteger)
-                and row.field_precision != 0
-            ):
+            elif issubclass(colclass, fb_types._FBNumeric):
+                # FLOAT, DOUBLE PRECISION or DECFLOAT
+                coltype = colclass(row.field_precision)
+            elif issubclass(colclass, fb_types._FBInteger):
                 # NUMERIC / DECIMAL types are stored as INTEGER types
-                coltype = fb_types._FBNumeric(
-                    precision=row.field_precision, scale=row.field_scale
-                )
+                if row.field_sub_type == 0:
+                    # INTEGERs
+                    coltype = colclass()
+                elif row.field_sub_type == 1:
+                    # NUMERIC
+                    coltype = fb_types._FBNUMERIC(
+                        precision=row.field_precision, scale=row.field_scale
+                    )
+                else:
+                    # DECIMAL
+                    coltype = fb_types._FBDECIMAL(
+                        precision=row.field_precision, scale=row.field_scale
+                    )
             elif issubclass(colclass, sa_types.DateTime):
                 has_timezone = "WITH TIME ZONE" in row.field_type
                 coltype = colclass(timezone=has_timezone)

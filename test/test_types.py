@@ -39,11 +39,11 @@ class TypesTest(fixtures.TestBase):
         t = Table(
             "test_blob_types",
             self.metadata,
-            Column("b", sa_types.BLOB()),
-            Column("fb", fb_types._FBBLOB()),
+            Column("b", sa_types.BLOB),
+            Column("fb", fb_types._FBBLOB),
             Column("fbs", fb_types._FBBLOB(segment_size=100)),
-            Column("t", sa_types.TEXT()),
-            Column("ft", fb_types._FBTEXT()),
+            Column("t", sa_types.TEXT),
+            Column("ft", fb_types._FBTEXT),
             Column("fts", fb_types._FBTEXT(segment_size=200)),
             Column("ftc", fb_types._FBTEXT(charset=TEST_CHARSET)),
             Column(
@@ -77,15 +77,15 @@ class TypesTest(fixtures.TestBase):
         t = Table(
             "test_character_types",
             self.metadata,
-            Column("c", sa_types.CHAR()),
+            Column("c", sa_types.CHAR),
             Column("cl", sa_types.CHAR(length=10)),
-            Column("nc", sa_types.NCHAR()),
+            Column("nc", sa_types.NCHAR),
             Column("ncl", sa_types.NCHAR(length=11)),
-            Column("vc", sa_types.VARCHAR()),
+            Column("vc", sa_types.VARCHAR),
             Column("vcl", sa_types.VARCHAR(length=12)),
-            Column("nvc", sa_types.NVARCHAR()),
+            Column("nvc", sa_types.NVARCHAR),
             Column("nvcl", sa_types.NVARCHAR(length=13)),
-            Column("fc", fb_types._FBCHAR()),
+            Column("fc", fb_types._FBCHAR),
             Column("fcl", fb_types._FBCHAR(length=20)),
             Column("fclc", fb_types._FBCHAR(length=21, charset=TEST_CHARSET)),
             Column(
@@ -94,11 +94,11 @@ class TypesTest(fixtures.TestBase):
                     length=22, charset=TEST_CHARSET, collation=TEST_COLLATION
                 ),
             ),
-            Column("fb", fb_types._FBBINARY()),
+            Column("fb", fb_types._FBBINARY),
             Column("fbl", fb_types._FBBINARY(length=31)),
-            Column("fnc", fb_types._FBNCHAR()),
+            Column("fnc", fb_types._FBNCHAR),
             Column("fncl", fb_types._FBNCHAR(length=32)),
-            Column("fvc", fb_types._FBVARCHAR()),
+            Column("fvc", fb_types._FBVARCHAR),
             Column("fvcl", fb_types._FBVARCHAR(length=33)),
             Column(
                 "fvclc", fb_types._FBVARCHAR(length=34, charset=TEST_CHARSET)
@@ -109,9 +109,9 @@ class TypesTest(fixtures.TestBase):
                     length=35, charset=TEST_CHARSET, collation=TEST_COLLATION
                 ),
             ),
-            Column("fvb", fb_types._FBVARBINARY()),
+            Column("fvb", fb_types._FBVARBINARY),
             Column("fvbl", fb_types._FBVARBINARY(length=36)),
-            Column("fnvc", fb_types._FBNVARCHAR()),
+            Column("fnvc", fb_types._FBNVARCHAR),
             Column("fnvcl", fb_types._FBNVARCHAR(length=37)),
         )
         self.metadata.create_all(testing.db)
@@ -210,3 +210,60 @@ class TypesTest(fixtures.TestBase):
         eq_col(rt.columns["fi"], fb_types._FBINTEGER),
         eq_col(rt.columns["fbi"], fb_types._FBBIGINT),
         eq_col(rt.columns["fli"], large_int_type),
+
+    @testing.provide_metadata
+    def test_float_types(self, connection):
+        if not testing.requires.firebird_4_or_higher.enabled:
+            # Firebird 2.5 and 3.0 have only two possible FLOAT data types
+            t = Table(
+                "test_float_types",
+                self.metadata,
+                Column("f", sa_types.FLOAT),
+                Column("r", sa_types.REAL),
+                Column("dp", sa_types.DOUBLE_PRECISION),
+            )
+            self.metadata.create_all(testing.db)
+
+            rm = MetaData()
+            rt = Table("test_float_types", rm, autoload_with=testing.db)
+
+            eq_col(rt.columns["f"], fb_types._FBFLOAT),
+            eq_col(rt.columns["r"], fb_types._FBFLOAT),
+            eq_col(rt.columns["dp"], fb_types._FBDOUBLE_PRECISION),
+            return
+
+        t = Table(
+            "test_float_types",
+            self.metadata,
+            Column("f", sa_types.FLOAT),
+            Column("f24", sa_types.FLOAT(precision=24)),
+            Column("f53", sa_types.FLOAT(precision=53)),
+            Column("r", sa_types.REAL),
+            Column("dp", sa_types.DOUBLE_PRECISION),
+            Column("ff", fb_types._FBFLOAT),
+            Column("ff24", fb_types._FBFLOAT(precision=24)),
+            Column("ff53", fb_types._FBFLOAT(precision=53)),
+            Column("fr", fb_types._FBREAL),
+            Column("fdp", fb_types._FBDOUBLE_PRECISION),
+            Column("fdf", fb_types._FBDECFLOAT),
+            Column("fdf16", fb_types._FBDECFLOAT(precision=16)),
+            Column("fdf34", fb_types._FBDECFLOAT(precision=34)),
+        )
+        self.metadata.create_all(testing.db)
+
+        rm = MetaData()
+        rt = Table("test_float_types", rm, autoload_with=testing.db)
+
+        eq_col(rt.columns["f"], fb_types._FBFLOAT),
+        eq_col(rt.columns["f24"], fb_types._FBFLOAT),
+        eq_col(rt.columns["f53"], fb_types._FBDOUBLE_PRECISION),
+        eq_col(rt.columns["r"], fb_types._FBFLOAT),
+        eq_col(rt.columns["dp"], fb_types._FBDOUBLE_PRECISION),
+        eq_col(rt.columns["ff"], fb_types._FBFLOAT),
+        eq_col(rt.columns["ff24"], fb_types._FBFLOAT),
+        eq_col(rt.columns["ff53"], fb_types._FBDOUBLE_PRECISION),
+        eq_col(rt.columns["fr"], fb_types._FBFLOAT),
+        eq_col(rt.columns["fdp"], fb_types._FBDOUBLE_PRECISION),
+        eq_col(rt.columns["fdf"], fb_types._FBDECFLOAT, precision=34),
+        eq_col(rt.columns["fdf16"], fb_types._FBDECFLOAT, precision=16),
+        eq_col(rt.columns["fdf34"], fb_types._FBDECFLOAT, precision=34),

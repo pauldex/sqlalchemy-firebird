@@ -1805,6 +1805,13 @@ class Requirements(SuiteRequirements):
     # Firebird helpers
     #
     @property
+    def firebird_3_or_lower(self):
+        return exclusions.skip_if(
+            lambda config: config.db.dialect.server_version_info >= (3, 0),
+            "Only for Firebird 2.5 or 3.0.",
+        )
+
+    @property
     def firebird_3_or_higher(self):
         return exclusions.skip_if(
             lambda config: config.db.dialect.server_version_info < (3,),

@@ -310,7 +310,7 @@ class IdentityReflectionTest(_IdentityReflectionTest):
 
     @classmethod
     def define_tables(cls, metadata):
-        firebird_4_or_higher = config.db.dialect.server_version_info >= (4,)
+        firebird_4_or_higher = config.db.dialect.server_version_info >= (4, 0)
 
         Table(
             "t1",
@@ -334,7 +334,7 @@ class IdentityReflectionTest(_IdentityReflectionTest):
         )
 
     def test_reflect_identity(self):
-        firebird_4_or_higher = config.db.dialect.server_version_info >= (4,)
+        firebird_4_or_higher = config.db.dialect.server_version_info >= (4, 0)
 
         insp = inspect(config.db)
 

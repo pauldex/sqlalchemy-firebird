@@ -20,7 +20,7 @@ class _FBString(sqltypes.String):
         self.charset = charset
 
 
-class _FBCHAR(_FBString, sqltypes.CHAR):
+class _FBCHAR(_FBString):
     __visit_name__ = "CHAR"
 
     def __init__(self, length=None, charset=None, collation=None):
@@ -43,7 +43,7 @@ class _FBNCHAR(_FBCHAR):
         super().__init__(length, NATIONAL_CHARSET)
 
 
-class _FBVARCHAR(_FBString, sqltypes.VARCHAR):
+class _FBVARCHAR(_FBString):
     __visit_name__ = "VARCHAR"
 
     def __init__(self, length=None, charset=None, collation=None):
@@ -78,11 +78,40 @@ class _FBFLOAT(_FBNumeric, sqltypes.FLOAT):
 
 
 class _FBDOUBLE_PRECISION(_FBNumeric, sqltypes.DOUBLE_PRECISION):
-    __visit_name__ = "DOUBLE PRECISION"
+    __visit_name__ = "DOUBLE_PRECISION"
 
 
-class _FBDECFLOAT(_FBNumeric, sqltypes.FLOAT):
+class _FBDECFLOAT(_FBNumeric):
     __visit_name__ = "DECFLOAT"
+
+
+class _FBREAL(_FBFLOAT):
+    __visit_name__ = "REAL"
+
+    # Synonym for FLOAT
+    def __init__(self, precision=None, scale=None):
+        super().__init__(None, None)
+
+
+class _FBFixedPoint(_FBNumeric):
+    def __init__(
+        self,
+        precision=None,
+        scale=None,
+        decimal_return_scale=None,
+        asdecimal=None,
+    ):
+        super().__init__(
+            precision, scale, decimal_return_scale, asdecimal=True
+        )
+
+
+class _FBDECIMAL(_FBFixedPoint):
+    __visit_name__ = "DECIMAL"
+
+
+class _FBNUMERIC(_FBFixedPoint):
+    __visit_name__ = "NUMERIC"
 
 
 class _FBDATE(sqltypes.DATE):
