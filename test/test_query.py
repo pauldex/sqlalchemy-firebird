@@ -124,6 +124,8 @@ class InsertTest(fixtures.TestBase, AssertsExecutionResults):
         metadata.create_all(connection)
         self._assert_data_with_sequence_returning(connection, table, "my_seq")
 
+    # This test fails on Firebird 2.5/fdb due to the wrong collation being reflected.
+    @testing.requires.firebird_3_or_higher
     def test_opt_sequence_insert(self, metadata, connection):
         table = Table(
             "testtable",

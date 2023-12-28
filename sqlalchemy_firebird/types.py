@@ -5,26 +5,65 @@ from typing import Optional
 from sqlalchemy import Dialect, types as sqltypes
 
 
+# Character set of BINARY/VARBINARY
+BINARY_CHARSET = "OCTETS"
+
+# Character set of NCHAR/NVARCHAR
+NATIONAL_CHARSET = "ISO8859_1"
+
+
 class _FBString(sqltypes.String):
     render_bind_cast = True
 
-    def __init__(self, length=None, charset=None, **kwargs):
-        super().__init__(length, **kwargs)
+    def __init__(self, length=None, charset=None, collation=None):
+        super().__init__(length, collation)
         self.charset = charset
 
 
 class _FBCHAR(_FBString, sqltypes.CHAR):
     __visit_name__ = "CHAR"
 
-    def __init__(self, length=None, charset=None, **kwargs):
-        super().__init__(length, charset, **kwargs)
+    def __init__(self, length=None, charset=None, collation=None):
+        super().__init__(length, charset, collation)
+
+
+class _FBBINARY(_FBCHAR):
+    __visit_name__ = "BINARY"
+
+    # Synonym for CHAR(n) CHARACTER SET OCTETS
+    def __init__(self, length=None, charset=None, collation=None):
+        super().__init__(length, BINARY_CHARSET)
+
+
+class _FBNCHAR(_FBCHAR):
+    __visit_name__ = "NCHAR"
+
+    # Synonym for CHAR(n) CHARACTER SET ISO8859_1
+    def __init__(self, length=None, charset=None, collation=None):
+        super().__init__(length, NATIONAL_CHARSET)
 
 
 class _FBVARCHAR(_FBString, sqltypes.VARCHAR):
     __visit_name__ = "VARCHAR"
 
-    def __init__(self, length=None, charset=None, **kwargs):
-        super().__init__(length, charset, **kwargs)
+    def __init__(self, length=None, charset=None, collation=None):
+        super().__init__(length, charset, collation)
+
+
+class _FBVARBINARY(_FBVARCHAR):
+    __visit_name__ = "VARBINARY"
+
+    # Synonym for VARCHAR(n) CHARACTER SET OCTETS
+    def __init__(self, length=None, charset=None, collation=None):
+        super().__init__(length, BINARY_CHARSET)
+
+
+class _FBNVARCHAR(_FBVARCHAR):
+    __visit_name__ = "NVARCHAR"
+
+    # Synonym for VARCHAR(n) CHARACTER SET ISO8859_1
+    def __init__(self, length=None, charset=None, collation=None):
+        super().__init__(length, NATIONAL_CHARSET)
 
 
 class _FBNumeric(sqltypes.Numeric):

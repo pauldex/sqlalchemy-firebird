@@ -24,6 +24,7 @@ from sqlalchemy.sql import roles
 import sqlalchemy_firebird.types as fb_types
 
 
+# Expression separator for COMPUTER BY expressions
 EXPRESSION_SEPARATOR = "||"
 
 
@@ -377,22 +378,65 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
         return self.visit_TIMESTAMP(type_, **kw)
 
     def _render_string_type(self, type_, name, length_override=None):
+        firebird_3_or_lower = (
+            self.dialect.server_version_info
+            and self.dialect.server_version_info < (4,)
+        )
+
         length = coalesce(
             length_override,
             getattr(type_, "length", None),
         )
-
-        text = "BLOB SUB_TYPE TEXT" if length is None else f"{name}({length})"
-
         charset = getattr(type_, "charset", None)
+        collation = getattr(type_, "collation", None)
+
+        if name in ["BINARY", "VARBINARY", "NCHAR", "NVARCHAR"]:
+            charset = None
+            collation = None
+
+        if name == "NVARCHAR":
+            name = "NATIONAL CHARACTER VARYING"
+
+        if firebird_3_or_lower:
+            if name == "BINARY":
+                name = "CHAR"
+                charset = fb_types.BINARY_CHARSET
+                collation = None
+            elif name == "VARBINARY":
+                name = "VARCHAR"
+                charset = fb_types.BINARY_CHARSET
+                collation = None
+
+        text = name
+        if length is None:
+            if name == "VARBINARY" or (
+                name == "VARCHAR" and charset == fb_types.BINARY_CHARSET
+            ):
+                text = "BLOB SUB_TYPE BINARY"
+                charset = fb_types.BINARY_CHARSET
+                collation = None
+            elif name == "VARCHAR":
+                text = "BLOB SUB_TYPE TEXT"
+            elif name == "NATIONAL CHARACTER VARYING":
+                text = "BLOB SUB_TYPE TEXT"
+                charset = fb_types.NATIONAL_CHARSET
+                collation = None
+
+        text = text + (length and "(%d)" % length or "")
+
         if charset is not None:
             text += f" CHARACTER SET {charset}"
 
-        collation = getattr(type_, "collation", None)
         if collation is not None:
             text += f" COLLATE {collation}"
 
         return text
+
+    def visit_BINARY(self, type_, **kw):
+        return self._render_string_type(type_, "BINARY")
+
+    def visit_VARBINARY(self, type_, **kw):
+        return self._render_string_type(type_, "VARBINARY")
 
     def visit_TEXT(self, type_, **kw):
         return self.visit_BLOB(type_, override_subtype=1, **kw)
@@ -756,7 +800,8 @@ class FBDialect(default.DefaultDialect):
             ORDER BY rf.rdb$field_position
         """
 
-        has_identity_columns = self.server_version_info >= (3,)
+        is_firebird_25 = self.server_version_info < (3,)
+        has_identity_columns = not is_firebird_25
         if not has_identity_columns:
             # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
             #   Remove query lines containing [fb3+]
@@ -781,8 +826,22 @@ class FBDialect(default.DefaultDialect):
                 )
                 coltype = sa_types.NULLTYPE
             elif issubclass(colclass, fb_types._FBString):
-                # ToDo: Add charset, collation
-                coltype = colclass(length=row.field_length)
+                if row.character_set_name == fb_types.BINARY_CHARSET:
+                    if colclass == fb_types._FBCHAR:
+                        colclass = fb_types._FBBINARY
+                    elif colclass == fb_types._FBVARCHAR:
+                        colclass = fb_types._FBVARBINARY
+                if row.character_set_name == fb_types.NATIONAL_CHARSET:
+                    if colclass == fb_types._FBCHAR:
+                        colclass = fb_types._FBNCHAR
+                    elif colclass == fb_types._FBVARCHAR:
+                        colclass = fb_types._FBNVARCHAR
+
+                coltype = colclass(
+                    length=row.field_length,
+                    charset=row.character_set_name,
+                    collation=row.collation_name,
+                )
             elif (
                 issubclass(colclass, fb_types._FBInteger)
                 and row.field_precision != 0
