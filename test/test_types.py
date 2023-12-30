@@ -180,13 +180,6 @@ class TypesTest(fixtures.TestBase):
 
     @testing.provide_metadata
     def test_integer_types(self, connection):
-        is_firebird_5_or_higher = testing.requires.firebird_5_or_higher.enabled
-        large_int_type = (
-            fb_types._FBINT128
-            if is_firebird_5_or_higher
-            else fb_types._FBBIGINT
-        )
-
         t = Table(
             "test_integer_types",
             self.metadata,
@@ -196,7 +189,6 @@ class TypesTest(fixtures.TestBase):
             Column("fsi", fb_types._FBSMALLINT),
             Column("fi", fb_types._FBINTEGER),
             Column("fbi", fb_types._FBBIGINT),
-            Column("fli", large_int_type),
         )
         self.metadata.create_all(testing.db)
 
@@ -209,29 +201,30 @@ class TypesTest(fixtures.TestBase):
         eq_col(rt.columns["fsi"], fb_types._FBSMALLINT),
         eq_col(rt.columns["fi"], fb_types._FBINTEGER),
         eq_col(rt.columns["fbi"], fb_types._FBBIGINT),
-        eq_col(rt.columns["fli"], large_int_type),
 
     @testing.provide_metadata
+    @testing.requires.firebird_3_or_lower
+    def test_float_types_v3(self, connection):
+        # Firebird 2.5 and 3.0 have only two possible FLOAT data types
+        t = Table(
+            "test_float_types_v3",
+            self.metadata,
+            Column("f", sa_types.FLOAT),
+            Column("r", sa_types.REAL),
+            Column("dp", sa_types.DOUBLE_PRECISION),
+        )
+        self.metadata.create_all(testing.db)
+
+        rm = MetaData()
+        rt = Table("test_float_types_v3", rm, autoload_with=testing.db)
+
+        eq_col(rt.columns["f"], fb_types._FBFLOAT),
+        eq_col(rt.columns["r"], fb_types._FBFLOAT),
+        eq_col(rt.columns["dp"], fb_types._FBDOUBLE_PRECISION),
+
+    @testing.provide_metadata
+    @testing.requires.firebird_4_or_higher
     def test_float_types(self, connection):
-        if not testing.requires.firebird_4_or_higher.enabled:
-            # Firebird 2.5 and 3.0 have only two possible FLOAT data types
-            t = Table(
-                "test_float_types",
-                self.metadata,
-                Column("f", sa_types.FLOAT),
-                Column("r", sa_types.REAL),
-                Column("dp", sa_types.DOUBLE_PRECISION),
-            )
-            self.metadata.create_all(testing.db)
-
-            rm = MetaData()
-            rt = Table("test_float_types", rm, autoload_with=testing.db)
-
-            eq_col(rt.columns["f"], fb_types._FBFLOAT),
-            eq_col(rt.columns["r"], fb_types._FBFLOAT),
-            eq_col(rt.columns["dp"], fb_types._FBDOUBLE_PRECISION),
-            return
-
         t = Table(
             "test_float_types",
             self.metadata,
@@ -267,3 +260,62 @@ class TypesTest(fixtures.TestBase):
         eq_col(rt.columns["fdf"], fb_types._FBDECFLOAT, precision=34),
         eq_col(rt.columns["fdf16"], fb_types._FBDECFLOAT, precision=16),
         eq_col(rt.columns["fdf34"], fb_types._FBDECFLOAT, precision=34),
+
+    @testing.provide_metadata
+    def test_fixed_types(self, connection):
+        t = Table(
+            "test_fixed_types",
+            self.metadata,
+            Column("n4", sa_types.NUMERIC(precision=4, scale=2)),
+            Column("d4", sa_types.DECIMAL(precision=4, scale=2)),
+            Column("n9", sa_types.NUMERIC(precision=9, scale=3)),
+            Column("d9", sa_types.DECIMAL(precision=9, scale=3)),
+            Column("n18", sa_types.NUMERIC(precision=18, scale=4)),
+            Column("d18", sa_types.DECIMAL(precision=18, scale=4)),
+            Column("fn4", fb_types._FBNUMERIC(precision=4, scale=2)),
+            Column("fd4", fb_types._FBDECIMAL(precision=4, scale=2)),
+            Column("fn9", fb_types._FBNUMERIC(precision=9, scale=3)),
+            Column("fd9", fb_types._FBDECIMAL(precision=9, scale=3)),
+            Column("fn18", fb_types._FBNUMERIC(precision=18, scale=4)),
+            Column("fd18", fb_types._FBDECIMAL(precision=18, scale=4)),
+        )
+        self.metadata.create_all(testing.db)
+
+        rm = MetaData()
+        rt = Table("test_fixed_types", rm, autoload_with=testing.db)
+
+        eq_col(rt.columns["n4"], fb_types._FBNUMERIC, precision=4, scale=2),
+        eq_col(rt.columns["d4"], fb_types._FBDECIMAL, precision=4, scale=2),
+        eq_col(rt.columns["n9"], fb_types._FBNUMERIC, precision=9, scale=3),
+        eq_col(rt.columns["d9"], fb_types._FBDECIMAL, precision=9, scale=3),
+        eq_col(rt.columns["n18"], fb_types._FBNUMERIC, precision=18, scale=4),
+        eq_col(rt.columns["d18"], fb_types._FBDECIMAL, precision=18, scale=4),
+        eq_col(rt.columns["fn4"], fb_types._FBNUMERIC, precision=4, scale=2),
+        eq_col(rt.columns["fd4"], fb_types._FBDECIMAL, precision=4, scale=2),
+        eq_col(rt.columns["fn9"], fb_types._FBNUMERIC, precision=9, scale=3),
+        eq_col(rt.columns["fd9"], fb_types._FBDECIMAL, precision=9, scale=3),
+        eq_col(rt.columns["fn18"], fb_types._FBNUMERIC, precision=18, scale=4),
+        eq_col(rt.columns["fd18"], fb_types._FBDECIMAL, precision=18, scale=4),
+
+    @testing.provide_metadata
+    @testing.requires.firebird_4_or_higher
+    def test_fb4_types(self, connection):
+        t = Table(
+            "test_fb4_types",
+            self.metadata,
+            Column("n38", sa_types.NUMERIC(precision=38, scale=8)),
+            Column("d38", sa_types.DECIMAL(precision=38, scale=8)),
+            Column("fli", fb_types._FBINT128),
+            Column("fn38", fb_types._FBNUMERIC(precision=38, scale=8)),
+            Column("fd38", fb_types._FBDECIMAL(precision=38, scale=8)),
+        )
+        self.metadata.create_all(testing.db)
+
+        rm = MetaData()
+        rt = Table("test_fb4_types", rm, autoload_with=testing.db)
+
+        eq_col(rt.columns["n38"], fb_types._FBNUMERIC, precision=38, scale=8),
+        eq_col(rt.columns["d38"], fb_types._FBDECIMAL, precision=38, scale=8),
+        eq_col(rt.columns["fli"], fb_types._FBINT128),
+        eq_col(rt.columns["fn38"], fb_types._FBNUMERIC, precision=38, scale=8),
+        eq_col(rt.columns["fd38"], fb_types._FBDECIMAL, precision=38, scale=8),
