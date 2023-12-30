@@ -63,16 +63,16 @@ class CompileTest(fixtures.TablesTest, AssertsCompiledSQL):
     def test_charset(self):
         """Exercise CHARACTER SET options on string types."""
         columns = [
-            (FbTypes._FBCHAR, [1], {}, "CHAR(1)"),
+            (FbTypes.FBCHAR, [1], {}, "CHAR(1)"),
             (
-                FbTypes._FBCHAR,
+                FbTypes.FBCHAR,
                 [1],
                 {"charset": "OCTETS"},
                 "CHAR(1) CHARACTER SET OCTETS",
             ),
-            (FbTypes._FBVARCHAR, [1], {}, "VARCHAR(1)"),
+            (FbTypes.FBVARCHAR, [1], {}, "VARCHAR(1)"),
             (
-                FbTypes._FBVARCHAR,
+                FbTypes.FBVARCHAR,
                 [1],
                 {"charset": "OCTETS"},
                 "VARCHAR(1) CHARACTER SET OCTETS",

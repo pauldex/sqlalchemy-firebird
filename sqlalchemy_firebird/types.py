@@ -20,14 +20,14 @@ class _FBString(sqltypes.String):
         self.charset = charset
 
 
-class _FBCHAR(_FBString):
+class FBCHAR(_FBString):
     __visit_name__ = "CHAR"
 
     def __init__(self, length=None, charset=None, collation=None):
         super().__init__(length, charset, collation)
 
 
-class _FBBINARY(_FBCHAR):
+class FBBINARY(FBCHAR):
     __visit_name__ = "BINARY"
 
     # Synonym for CHAR(n) CHARACTER SET OCTETS
@@ -35,7 +35,7 @@ class _FBBINARY(_FBCHAR):
         super().__init__(length, BINARY_CHARSET)
 
 
-class _FBNCHAR(_FBCHAR):
+class FBNCHAR(FBCHAR):
     __visit_name__ = "NCHAR"
 
     # Synonym for CHAR(n) CHARACTER SET ISO8859_1
@@ -43,14 +43,14 @@ class _FBNCHAR(_FBCHAR):
         super().__init__(length, NATIONAL_CHARSET)
 
 
-class _FBVARCHAR(_FBString):
+class FBVARCHAR(_FBString):
     __visit_name__ = "VARCHAR"
 
     def __init__(self, length=None, charset=None, collation=None):
         super().__init__(length, charset, collation)
 
 
-class _FBVARBINARY(_FBVARCHAR):
+class FBVARBINARY(FBVARCHAR):
     __visit_name__ = "VARBINARY"
 
     # Synonym for VARCHAR(n) CHARACTER SET OCTETS
@@ -58,7 +58,7 @@ class _FBVARBINARY(_FBVARCHAR):
         super().__init__(length, BINARY_CHARSET)
 
 
-class _FBNVARCHAR(_FBVARCHAR):
+class FBNVARCHAR(FBVARCHAR):
     __visit_name__ = "NVARCHAR"
 
     # Synonym for VARCHAR(n) CHARACTER SET ISO8859_1
@@ -73,19 +73,19 @@ class _FBNumeric(sqltypes.Numeric):
         return None  # Dialect supports_native_decimal = True (no processor needed)
 
 
-class _FBFLOAT(_FBNumeric, sqltypes.FLOAT):
+class FBFLOAT(_FBNumeric, sqltypes.FLOAT):
     __visit_name__ = "FLOAT"
 
 
-class _FBDOUBLE_PRECISION(_FBNumeric, sqltypes.DOUBLE_PRECISION):
+class FBDOUBLE_PRECISION(_FBNumeric, sqltypes.DOUBLE_PRECISION):
     __visit_name__ = "DOUBLE_PRECISION"
 
 
-class _FBDECFLOAT(_FBNumeric):
+class FBDECFLOAT(_FBNumeric):
     __visit_name__ = "DECFLOAT"
 
 
-class _FBREAL(_FBFLOAT):
+class FBREAL(FBFLOAT):
     __visit_name__ = "REAL"
 
     # Synonym for FLOAT
@@ -106,23 +106,23 @@ class _FBFixedPoint(_FBNumeric):
         )
 
 
-class _FBDECIMAL(_FBFixedPoint):
+class FBDECIMAL(_FBFixedPoint):
     __visit_name__ = "DECIMAL"
 
 
-class _FBNUMERIC(_FBFixedPoint):
+class FBNUMERIC(_FBFixedPoint):
     __visit_name__ = "NUMERIC"
 
 
-class _FBDATE(sqltypes.DATE):
+class FBDATE(sqltypes.DATE):
     render_bind_cast = True
 
 
-class _FBTIME(sqltypes.TIME):
+class FBTIME(sqltypes.TIME):
     render_bind_cast = True
 
 
-class _FBTIMESTAMP(sqltypes.TIMESTAMP):
+class FBTIMESTAMP(sqltypes.TIMESTAMP):
     render_bind_cast = True
 
 
@@ -130,23 +130,23 @@ class _FBInteger(sqltypes.Integer):
     render_bind_cast = True
 
 
-class _FBSMALLINT(_FBInteger):
+class FBSMALLINT(_FBInteger):
     __visit_name__ = "SMALLINT"
 
 
-class _FBINTEGER(_FBInteger):
+class FBINTEGER(_FBInteger):
     __visit_name__ = "INTEGER"
 
 
-class _FBBIGINT(_FBInteger):
+class FBBIGINT(_FBInteger):
     __visit_name__ = "BIGINT"
 
 
-class _FBINT128(_FBInteger):
+class FBINT128(_FBInteger):
     __visit_name__ = "INT128"
 
 
-class _FBBOOLEAN(sqltypes.BOOLEAN):
+class FBBOOLEAN(sqltypes.BOOLEAN):
     render_bind_cast = True
 
 
@@ -169,7 +169,7 @@ class _FBLargeBinary(sqltypes.LargeBinary):
         return process
 
 
-class _FBBLOB(_FBLargeBinary, sqltypes.BLOB):
+class FBBLOB(_FBLargeBinary, sqltypes.BLOB):
     __visit_name__ = "BLOB"
 
     def __init__(
@@ -179,7 +179,7 @@ class _FBBLOB(_FBLargeBinary, sqltypes.BLOB):
         super().__init__(0, segment_size)
 
 
-class _FBTEXT(_FBLargeBinary, sqltypes.TEXT):
+class FBTEXT(_FBLargeBinary, sqltypes.TEXT):
     __visit_name__ = "BLOB"
 
     def __init__(

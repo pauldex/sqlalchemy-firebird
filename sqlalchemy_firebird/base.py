@@ -602,15 +602,15 @@ class FBDialect(default.DefaultDialect):
     colspecs = {
         sa_types.String: fb_types._FBString,
         sa_types.Numeric: fb_types._FBNumeric,
-        sa_types.Float: fb_types._FBFLOAT,
-        sa_types.Double: fb_types._FBDOUBLE_PRECISION,
-        sa_types.Date: fb_types._FBDATE,
-        sa_types.Time: fb_types._FBTIME,
-        sa_types.DateTime: fb_types._FBTIMESTAMP,
+        sa_types.Float: fb_types.FBFLOAT,
+        sa_types.Double: fb_types.FBDOUBLE_PRECISION,
+        sa_types.Date: fb_types.FBDATE,
+        sa_types.Time: fb_types.FBTIME,
+        sa_types.DateTime: fb_types.FBTIMESTAMP,
         sa_types.Interval: fb_types._FBInterval,
-        sa_types.BigInteger: fb_types._FBBIGINT,
-        sa_types.Integer: fb_types._FBINTEGER,
-        sa_types.SmallInteger: fb_types._FBSMALLINT,
+        sa_types.BigInteger: fb_types.FBBIGINT,
+        sa_types.Integer: fb_types.FBINTEGER,
+        sa_types.SmallInteger: fb_types.FBSMALLINT,
         sa_types.BINARY: fb_types._FBLargeBinary,
         sa_types.VARBINARY: fb_types._FBLargeBinary,
         sa_types.LargeBinary: fb_types._FBLargeBinary,
@@ -620,24 +620,24 @@ class FBDialect(default.DefaultDialect):
     ischema_names = {
         "BLOB": fb_types._FBLargeBinary,
         # "BLOB_ID": unused
-        "BOOLEAN": fb_types._FBBOOLEAN,
-        "CSTRING": fb_types._FBVARCHAR,
-        "DATE": fb_types._FBDATE,
-        "DECFLOAT(16)": fb_types._FBDECFLOAT,
-        "DECFLOAT(34)": fb_types._FBDECFLOAT,
-        "DOUBLE": fb_types._FBDOUBLE_PRECISION,
-        "FLOAT": fb_types._FBFLOAT,
-        "INT128": fb_types._FBINT128,
-        "INT64": fb_types._FBBIGINT,
-        "LONG": fb_types._FBINTEGER,
+        "BOOLEAN": fb_types.FBBOOLEAN,
+        "CSTRING": fb_types.FBVARCHAR,
+        "DATE": fb_types.FBDATE,
+        "DECFLOAT(16)": fb_types.FBDECFLOAT,
+        "DECFLOAT(34)": fb_types.FBDECFLOAT,
+        "DOUBLE": fb_types.FBDOUBLE_PRECISION,
+        "FLOAT": fb_types.FBFLOAT,
+        "INT128": fb_types.FBINT128,
+        "INT64": fb_types.FBBIGINT,
+        "LONG": fb_types.FBINTEGER,
         # "QUAD": unused,
-        "SHORT": fb_types._FBSMALLINT,
-        "TEXT": fb_types._FBCHAR,
-        "TIME": fb_types._FBTIME,
-        "TIME WITH TIME ZONE": fb_types._FBTIME,
-        "TIMESTAMP": fb_types._FBTIMESTAMP,
-        "TIMESTAMP WITH TIME ZONE": fb_types._FBTIMESTAMP,
-        "VARYING": fb_types._FBVARCHAR,
+        "SHORT": fb_types.FBSMALLINT,
+        "TEXT": fb_types.FBCHAR,
+        "TIME": fb_types.FBTIME,
+        "TIME WITH TIME ZONE": fb_types.FBTIME,
+        "TIMESTAMP": fb_types.FBTIMESTAMP,
+        "TIMESTAMP WITH TIME ZONE": fb_types.FBTIMESTAMP,
+        "VARYING": fb_types.FBVARCHAR,
     }
 
     construct_arguments = [
@@ -838,15 +838,15 @@ class FBDialect(default.DefaultDialect):
                 coltype = sa_types.NULLTYPE
             elif issubclass(colclass, fb_types._FBString):
                 if row.character_set_name == fb_types.BINARY_CHARSET:
-                    if colclass == fb_types._FBCHAR:
-                        colclass = fb_types._FBBINARY
-                    elif colclass == fb_types._FBVARCHAR:
-                        colclass = fb_types._FBVARBINARY
+                    if colclass == fb_types.FBCHAR:
+                        colclass = fb_types.FBBINARY
+                    elif colclass == fb_types.FBVARCHAR:
+                        colclass = fb_types.FBVARBINARY
                 if row.character_set_name == fb_types.NATIONAL_CHARSET:
-                    if colclass == fb_types._FBCHAR:
-                        colclass = fb_types._FBNCHAR
-                    elif colclass == fb_types._FBVARCHAR:
-                        colclass = fb_types._FBNVARCHAR
+                    if colclass == fb_types.FBCHAR:
+                        colclass = fb_types.FBNCHAR
+                    elif colclass == fb_types.FBVARCHAR:
+                        colclass = fb_types.FBNVARCHAR
 
                 coltype = colclass(
                     length=row.field_length,
@@ -863,12 +863,12 @@ class FBDialect(default.DefaultDialect):
                     coltype = colclass()
                 elif row.field_sub_type == 1:
                     # NUMERIC
-                    coltype = fb_types._FBNUMERIC(
+                    coltype = fb_types.FBNUMERIC(
                         precision=row.field_precision, scale=row.field_scale
                     )
                 else:
                     # DECIMAL
-                    coltype = fb_types._FBDECIMAL(
+                    coltype = fb_types.FBDECIMAL(
                         precision=row.field_precision, scale=row.field_scale
                     )
             elif issubclass(colclass, sa_types.DateTime):
@@ -876,13 +876,13 @@ class FBDialect(default.DefaultDialect):
                 coltype = colclass(timezone=has_timezone)
             elif issubclass(colclass, fb_types._FBLargeBinary):
                 if row.field_sub_type == 1:
-                    coltype = fb_types._FBTEXT(
+                    coltype = fb_types.FBTEXT(
                         row.segment_length,
                         row.character_set_name,
                         row.collation_name,
                     )
                 else:
-                    coltype = fb_types._FBBLOB(row.segment_length)
+                    coltype = fb_types.FBBLOB(row.segment_length)
             else:
                 coltype = colclass()
 

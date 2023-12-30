@@ -33,7 +33,7 @@ from sqlalchemy.testing import AssertsExecutionResults
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
 
-from sqlalchemy_firebird.types import _FBINTEGER
+from sqlalchemy_firebird.types import FBINTEGER
 
 #
 # Tests from postgresql/test_reflection.py
@@ -175,7 +175,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
     def test_quoted_domain_is_reflected(self, connection):
         metadata = MetaData()
         table = Table("quote_test", metadata, autoload_with=connection)
-        eq_(table.c.data.type.__class__, _FBINTEGER)
+        eq_(table.c.data.type.__class__, FBINTEGER)
 
     @property
     def all_domains(self):
