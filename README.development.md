@@ -13,7 +13,6 @@ Support for 32/64 bit Python 2.7, 3.6+ on Windows/Linux/Mac.
 
 # Windows environment
 
-
 ## Install Python
 
 You may install Python with [Chocolatey](https://chocolatey.org/install):
@@ -23,6 +22,7 @@ choco install python -y
 ```
 
 
+
 ## Install Visual Studio Code
 
 We strongly recommend Visual Studio Code for development. You may install it with:
@@ -30,6 +30,7 @@ We strongly recommend Visual Studio Code for development. You may install it wit
 ```powershell
 choco install vscode -y
 ```
+
 
 
 ## Initial checkout
@@ -43,36 +44,34 @@ pip install .[dev]
 pip install fdb
 ```
 
-This will create a Python virtual environment on `.venv` subfolder and install all required components.
+This will create a Python virtual environment in `.venv` subfolder and install all required components.
 
-Open the project folder with VSCode. It should detect the virtual environment automatically and use it. Please refer to [Visual Studio Code documentation on Python](https://code.visualstudio.com/docs/languages/python) for more information.
+Open the project folder with VSCode. It should detect the virtual environment automatically and activate it. Please refer to [Visual Studio Code documentation on Python](https://code.visualstudio.com/docs/languages/python) for more information.
+
+To activate the virtual environment on a command prompt instance (cmd or powershell) use:
+
+```
+.venv/Scripts/activate
+```
+
 
 
 ## Prepare the test infrastructure
 
-Run the following Powershell script
+With the virtual environment activated, run the following script
 
 ```
-.\rebuild-test-environment.ps1
+rebuild-test-databases
 ```
 
-This will create a `sqlalchemy-firebird-tests` under your `$env:TEMP` folder containing:
-  - The binaries for each supported Firebird version
-  - An empty database for each Firebird version
+This script will 
 
-The script also adds a `[db]` section to your `setup.cfg` file like the following:
+- Create a `$env:TEMP/sqlalchemy-firebird-tests` folder containing the binaries for each supported Firebird version;
+- Databases for each Firebird version; and
+- A `[db]` section into your `setup.cfg` containing one entry for each of the databases created.
 
-```ini
-[db]
-default = firebird+firebird://SYSDBA@/<temp>\sqlalchemy-firebird-tests\FIREBIRD.FB50.FDB?charset=UTF8&fb_client_library=<temp>\sqlalchemy-firebird-tests\fb50\fbclient.dll
+You may run this script whenever you need a clean database for your tests. It won't download the files again if they already exist.
 
-firebird_fb50 = firebird+firebird://SYSDBA@/<temp>\sqlalchemy-firebird-tests\FIREBIRD.FB50.FDB?charset=UTF8&fb_client_library=<temp>\sqlalchemy-firebird-tests\fb50\fbclient.dll
-firebird_fb40 = firebird+firebird://SYSDBA@/<temp>\sqlalchemy-firebird-tests\FIREBIRD.FB40.FDB?charset=UTF8&fb_client_library=<temp>\sqlalchemy-firebird-tests\fb40\fbclient.dll
-firebird_fb30 = firebird+firebird://SYSDBA@/<temp>\sqlalchemy-firebird-tests\FIREBIRD.FB30.FDB?charset=UTF8&fb_client_library=<temp>\sqlalchemy-firebird-tests\fb30\fbclient.dll
-
-fdb_fb30 = firebird+fdb://SYSDBA@/<temp>\sqlalchemy-firebird-tests\FDB.FB30.FDB?charset=UTF8&fb_library_name=<temp>\sqlalchemy-firebird-tests\fb30\fbclient.dll
-fdb_fb25 = firebird+fdb://SYSDBA@/<temp>\sqlalchemy-firebird-tests\FDB.FB25.FDB?charset=UTF8&fb_library_name=<temp>\sqlalchemy-firebird-tests\fb25\fbclient.dll
-```
 
 
 ## Running the tests
@@ -91,22 +90,16 @@ This will start 5 different processes, each one running a different combination 
 
 SQLAlchemy has a complex test infrastructure which unfortunately is not completely functional from VSCode test runner.
 
-To run a specific test under VSCode debugger this repository already provides a `.vscode/launch.json` file preconfigured.
+To run a specific test under VSCode debugger this repository already provides a `.vscode/launch.json` file preconfigured as a sample.
 
 E.g. to run the test `test_get_table_names` with `firebird-driver` and Firebird 5.0 you must set `pytest` arguments as:
 
 ```json
-"args": ["./test/test_suite.py::NormalizedNameTest", "-k", "test_get_table_names", "--db", "firebird_fb50"],
+"args": ["./test/test_suite.py::NormalizedNameTest::test_get_table_names", "--db", "firebird_fb50"],
 ```
 
-Now run the code (`F5`) and the debugger should work as expected (e.g. set a breakpoint and it should stop).
+Now run the code (with `F5`) and the debugger should work as expected (e.g. set a breakpoint and it should stop).
 
-Comments: 
-
-- Running the script `.\run-tests.ps1` will run the tests specified in `launch.json` out of VSCode.
-
-- Use `.\run-tests.ps1 -All` to run all tests for the currently configured `--db` in in `launch.json`.
-  - Or `.\run-tests.ps1 -All -Db <db>` to override the database in `launch.json`.
 
 
 ## Debugging SQLAlchemy code

@@ -21,7 +21,7 @@ exclude = '''
 '''
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -32,7 +32,7 @@ keywords = ["SQLAlchemy", "Firebird", "fdb", "firebird-driver"]
 license = {file = "LICENSE"}
 authors = [
     {name = "Gord Thompson", email="gord@gordthompson.com"},
-    {name = "F.D.Castel"},
+    {name = "F.D.Castel", email="fdcastel@gmail.com"},
     {name = "Paul Graves-DesLauriers", email="paul@dexmicro.com"},
 ]
 maintainers = [
@@ -70,6 +70,10 @@ Tracker = "https://github.com/pauldex/sqlalchemy-firebird/issues"
 "firebird" = "sqlalchemy_firebird.firebird:FBDialect_firebird"
 "firebird.fdb" = "sqlalchemy_firebird.fdb:FBDialect_fdb"
 "firebird.firebird" = "sqlalchemy_firebird.firebird:FBDialect_firebird"
+
+[project.scripts]
+prepare-test-environment = "sqlalchemy_firebird:infrastructure.prepare_test_environment"
+rebuild-test-databases = "sqlalchemy_firebird:infrastructure.rebuild_test_databases"
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst"], content-type = "text/x-rst"}
