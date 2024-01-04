@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 from glob import glob
+from os import environ
 from os import listdir
 from os import makedirs
 from os import remove
@@ -66,6 +67,10 @@ def download_firebird(url, root_folder, ipc_name=None):
         import tarfile
 
         with tarfile.open(source_package, "r:gz") as f:
+            f.extractall(path=root_folder)
+
+        buildroot_package = join(target_folder, "buildroot.tar.gz")
+        with tarfile.open(buildroot_package, "r:gz") as f:
             f.extractall(path=target_folder)
 
     log(f"  Deleting '{source_package}'...")
@@ -125,8 +130,8 @@ def prepare_test_environment(force=True):
         log(f"  Deleting {fb25_extra_basename}...")
         rmtree(fb25_extra_path)
     else:
-        # On Linux, rename "FirebirdCS" to "Firebird"
-        rename(fb25_root_path, "Firebird-2.5.9.27139-0.amd64")
+        # On Linux, rename "FirebirdCS" to "Firebird" to keep the same pattern
+        rename(fb25_root_path, join(root_folder, "Firebird-2.5.9.27139-0.amd64"))
 
     log("Test environment ready.")
     return root_folder
@@ -180,13 +185,24 @@ def rebuild_test_databases():
             if isfile(database):
                 remove(database)
 
+            # Sets FIREBIRD env var to avoid problems with 'firebird.msg' not found.
+            fb_env = environ.copy()
+            fb_env["FIREBIRD"] = root_path_for[engine]
+            if engine == "fb25" and os_name != "nt":
+                # Firebird 2.5 on Linux needs LD_LIBRARY_PATH set to './lib'
+                #   https://groups.google.com/g/firebird-support/c/T6Nu6snaBWM/m/yLYqcJj0BAAJ
+                fb_env["LD_LIBRARY_PATH"] = join(root_path_for[engine], "lib")
+
             create_sql = f"CREATE DATABASE '{database}' USER 'SYSDBA' PASSWORD 'masterkey' PAGE_SIZE 8192 DEFAULT CHARACTER SET UTF8;"
-            run(
+            cp = run(
                 [isql, "-quiet"],
                 capture_output=True,
                 input=create_sql,
                 text=True,
+                env=fb_env
             )
+            if cp.returncode != 0:
+                raise Exception(cp.stderr)
 
             # Add [db] section to setup.cfg
             lib_key = "fb_library_name" if driver == "fdb" else "fb_client_library"
@@ -195,7 +211,7 @@ def rebuild_test_databases():
                 lib_value = join(root_path_for[engine], "fbclient.dll")
             else:
                 lib_value = join(root_path_for[engine], "lib", "libfbclient.so")
-            
+
             db_uri = f"firebird+{driver}://SYSDBA@/{database}?charset=UTF8&{lib_key}={lib_value}"
 
             if driver == "firebird" and engine == "fb50":

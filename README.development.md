@@ -22,7 +22,6 @@ choco install python -y
 ```
 
 
-
 ## Install Visual Studio Code
 
 We strongly recommend Visual Studio Code for development. You may install it with:
@@ -30,7 +29,6 @@ We strongly recommend Visual Studio Code for development. You may install it wit
 ```powershell
 choco install vscode -y
 ```
-
 
 
 ## Initial checkout
@@ -50,13 +48,34 @@ Open the project folder with VSCode. It should detect the virtual environment au
 
 To activate the virtual environment on a command prompt instance (cmd or powershell) use:
 
-```
+```powershell
 .venv/Scripts/activate
 ```
 
 
+# Linux environment
 
-## Prepare the test infrastructure
+## Initial checkout
+
+Clone this repository into a local folder on your computer and, from the root folder, run 
+
+```
+python3 -m venv .venv
+. .venv/bin/activate
+pip install .[dev]
+pip install fdb
+```
+
+This will create a Python virtual environment in `.venv` subfolder and install all required components.
+
+To activate the virtual environment use:
+
+```bash
+. .venv/bin/activate
+```
+
+
+# Prepare the test infrastructure
 
 With the virtual environment activated, run the following script
 
@@ -66,9 +85,9 @@ rebuild-test-databases
 
 This script will 
 
-- Create a `$env:TEMP/sqlalchemy-firebird-tests` folder containing the binaries for each supported Firebird version;
-- Databases for each Firebird version; and
-- A `[db]` section into your `setup.cfg` containing one entry for each of the databases created.
+- Create a `sqlalchemy-firebird-tests` in your temp folder containing the binaries for each supported Firebird version;
+- Create databases for each Firebird version; and
+- Add a `[db]` section into your `setup.cfg` containing one entry for each of the databases created.
 
 You may run this script whenever you need a clean database for your tests. It won't download the files again if they already exist.
 
@@ -117,3 +136,5 @@ pip install -e $sqlAlchemyFolder
 ```
 
 The `launch.json` file already has the required `"justMyCode": false` configuration which allows you to step into SQLAlchemy source files during debugging.
+
+
