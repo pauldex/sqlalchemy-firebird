@@ -3,31 +3,13 @@
     Variables:
         MAX_IDENTIFIER_LENGTH -> int
         RESERVED_WORDS -> set
-        ISCHEMA_NAMES -> dict
 
 .._Firebird 3.0:
-    https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html#fblangref30-intro
+    https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html
 
 """
 
-from packaging import version
-
-from sqlalchemy import __version__ as SQLALCHEMY_VERSION
-from sqlalchemy.types import BIGINT
-from sqlalchemy.types import BLOB
-from sqlalchemy.types import BOOLEAN
-from sqlalchemy.types import DATE
-from sqlalchemy.types import FLOAT
-from sqlalchemy.types import INTEGER
-from sqlalchemy.types import NUMERIC
-from sqlalchemy.types import SMALLINT
-from sqlalchemy.types import TEXT
-from sqlalchemy.types import TIME
-from sqlalchemy.types import TIMESTAMP
-
-from .types import CHAR
-from .types import VARCHAR
-from .types import DOUBLE_PRECISION
+import sqlalchemy.types as sa_types
 
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html
 # "Length cannot exceed 31 bytes.  Identifiers are stored in character set UNICODE_FSS, which means
@@ -232,43 +214,4 @@ RESERVED_WORDS = {
     "while",
     "with",
     "year",
-}
-
-# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref30/firebird-30-language-reference.html#fblangref30-datatypes-syntax
-ISCHEMA_NAMES = {
-    "SMALLINT": SMALLINT,
-    "INT": INTEGER,
-    "INTEGER": INTEGER,
-    "BIGINT": BIGINT,
-    "FLOAT": FLOAT,
-    "DOUBLE PRECISION": FLOAT
-    if version.parse(SQLALCHEMY_VERSION).major < 2
-    else DOUBLE_PRECISION,
-    "BOOLEAN": BOOLEAN,
-    "DATE": DATE,
-    "TIME": TIME,
-    "TIMESTAMP": TIMESTAMP,
-    "DECIMAL": NUMERIC,
-    "NUMERIC": NUMERIC,
-    "VARCHAR": VARCHAR,
-    "CHAR VARYING": VARCHAR,
-    "CHARACTER VARYING": VARCHAR,
-    "CHAR": CHAR,
-    "CHARACTER": CHAR,
-    "NCHAR VARYING": VARCHAR,
-    "NATIONAL CHAR VARYING": VARCHAR,
-    "NATIONAL CHARACTER VARYING": VARCHAR,
-    "NCHAR": CHAR,
-    "NATIONAL CHAR": CHAR,
-    "NATIONAL CHARACTER": CHAR,
-    # Compatibility
-    "SHORT": SMALLINT,
-    "LONG": INTEGER,
-    "QUAD": FLOAT,
-    "TEXT": TEXT,
-    "INT64": BIGINT,
-    "DOUBLE": FLOAT,
-    "VARYING": VARCHAR,
-    "CSTRING": CHAR,
-    "BLOB": BLOB,
 }

@@ -1,26 +1,45 @@
+# Allow circular references between FBDialect and FBInspector
+from __future__ import annotations
+
 from packaging import version
+
+from typing import List
+from typing import Optional
 
 from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy import exc
 from sqlalchemy import schema as sa_schema
 from sqlalchemy import sql
 from sqlalchemy import text
-from sqlalchemy import types as sqltypes
+from sqlalchemy import types as sa_types
 from sqlalchemy import util
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
+from sqlalchemy.engine.interfaces import BindTyping
+from sqlalchemy.sql import coercions
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import expression
-from sqlalchemy.types import BLOB
-from sqlalchemy.types import Integer
-from sqlalchemy.types import NUMERIC
-from sqlalchemy.types import TEXT
+from sqlalchemy.sql import roles
 
+import sqlalchemy_firebird.types as fb_types
+
+
+# Expression separator for COMPUTER BY expressions
 EXPRESSION_SEPARATOR = "||"
 
 
+def coalesce(*arg):
+    # https://stackoverflow.com/questions/4978738/is-there-a-python-equivalent-of-the-c-sharp-null-coalescing-operator#comment37717570_16247152
+    return next((a for a in arg if a is not None), None)
+
+
 class FBCompiler(sql.compiler.SQLCompiler):
-    ansi_bind_rules = True
+    def render_bind_cast(self, type_, dbapi_type, sqltext):
+        return f"""CAST({sqltext} AS {
+            self.dialect.type_compiler_instance.process(
+                dbapi_type, identifier_preparer=self.preparer
+            )
+        })"""
 
     def visit_empty_set_expr(self, element_types, **kw):
         return "SELECT 1 FROM rdb$database WHERE 1 != 1"
@@ -32,6 +51,15 @@ class FBCompiler(sql.compiler.SQLCompiler):
         return self._handle_limit_fetch_clause(
             None, select._offset_clause, select._limit_clause, **kw
         )
+
+    def for_update_clause(self, select, **kw):
+        tmp = " FOR UPDATE"
+        if select._for_update_arg.nowait:
+            tmp += " WITH LOCK"
+        if select._for_update_arg.skip_locked:
+            tmp += " WITH LOCK SKIP LOCKED"
+
+        return tmp
 
     def fetch_clause(
         self,
@@ -114,6 +142,12 @@ class FBCompiler(sql.compiler.SQLCompiler):
             self.process(binary.right, **kw),
         )
 
+    def visit_bitwise_xor_op_binary(self, binary, operator, **kw):
+        return "BIN_XOR(%s, %s)" % (
+            self.process(binary.left, **kw),
+            self.process(binary.right, **kw),
+        )
+
     def visit_now_func(self, fn, **kw):
         return "CURRENT_TIMESTAMP"
 
@@ -150,7 +184,7 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         colspec = self.preparer.format_column(column)
 
         impl_type = column.type.dialect_impl(self.dialect)
-        if isinstance(impl_type, sqltypes.TypeDecorator):
+        if isinstance(impl_type, sa_types.TypeDecorator):
             impl_type = impl_type.impl
 
         has_identity = column.identity is not None
@@ -213,6 +247,10 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
         if index.unique:
             txt += "UNIQUE "
 
+        descending = index.dialect_options["firebird"]["descending"]
+        if descending is True:
+            txt += "DESCENDING "
+
         txt += "INDEX %s ON %s " % (
             self._prepared_index_name(index, include_schema=include_schema),
             preparer.format_table(
@@ -233,11 +271,13 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
 
         if isinstance(first_expression, expression.ColumnClause):
             # INDEX on columns
-            txt += ", ".join(
-                self.sql_compiler.process(
-                    expr, include_table=False, literal_binds=True
+            txt += "(%s)" % (
+                ", ".join(
+                    self.sql_compiler.process(
+                        expr, include_table=False, literal_binds=True
+                    )
+                    for expr in index.expressions
                 )
-                for expr in index.expressions
             )
         else:
             # INDEX on expression
@@ -247,47 +287,84 @@ class FBDDLCompiler(sql.compiler.DDLCompiler):
                 )
                 for expr in index.expressions
             )
+
+        # Partial indices (Firebird 5.0+)
+        whereclause = index.dialect_options["firebird"]["where"]
+        if whereclause is not None:
+            whereclause = coercions.expect(
+                roles.DDLExpressionRole, whereclause
+            )
+
+            where_compiled = self.sql_compiler.process(
+                whereclause, include_table=False, literal_binds=True
+            )
+            txt += " WHERE " + where_compiled
+
         return txt
 
     def post_create_table(self, table):
         table_opts = []
-        fb_opts = table.dialect_options[self.dialect.name]
+        fb_opts = table.dialect_options["firebird"]
 
         if fb_opts["on_commit"]:
-            on_commit_options = fb_opts["on_commit"].replace("_", " ").upper()
+            on_commit_options = fb_opts["on_commit"]
             table_opts.append("\n ON COMMIT %s" % on_commit_options)
 
         return "".join(table_opts)
 
     def visit_computed_column(self, generated, **kw):
-        # TODO: Support GENERATED BY DEFAULT AS ...
         if generated.persisted is not None:
             raise exc.CompileError(
                 "Firebird computed columns do not support a persistence "
                 "method setting; set the 'persisted' flag to None for "
                 "Firebird support."
             )
+
         return "GENERATED ALWAYS AS (%s)" % self.sql_compiler.process(
             generated.sqltext, include_table=False, literal_binds=True
         )
 
     def get_identity_options(self, identity_options):
+        firebird_3_or_lower = (
+            self.dialect.server_version_info
+            and self.dialect.server_version_info < (4,)
+        )
+
         txt = []
         if identity_options.start is not None:
             start = identity_options.start
-            if self.dialect.server_version_info < (4,):
-                # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
-                start -= (
-                    identity_options.increment
-                    if identity_options.increment is not None
-                    else 1
-                )
+
+            # Firebird 3 has distinct START WITH semantic.
+            # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
+            # Previous versions of dialect tried to hide this (adjusting here the reflected start value).
+            # This was removed since it opens a can of worms (e.g. when reading databases NOT created by SQLAlchemy).
+
             txt.append("START WITH %d" % start)
 
-        if identity_options.increment is not None:
-            txt.append("INCREMENT BY %d" % identity_options.increment)
+        if not firebird_3_or_lower:
+            if identity_options.increment is not None:
+                txt.append("INCREMENT BY %d" % identity_options.increment)
 
         return " ".join(txt)
+
+    def visit_identity_column(self, identity, **kw):
+        firebird_3_or_lower = (
+            self.dialect.server_version_info
+            and self.dialect.server_version_info < (4,)
+        )
+
+        kind = (
+            "ALWAYS"
+            if identity.always and (not firebird_3_or_lower)
+            else "BY DEFAULT"
+        )
+        text = "GENERATED %s AS IDENTITY" % kind
+
+        options = self.get_identity_options(identity)
+        if options:
+            text += " (%s)" % options
+
+        return text
 
 
 class FBTypeCompiler(compiler.GenericTypeCompiler):
@@ -300,22 +377,80 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
     def visit_datetime(self, type_, **kw):
         return self.visit_TIMESTAMP(type_, **kw)
 
-    def visit_TEXT(self, type_, **kw):
-        return "BLOB SUB_TYPE 1"
-
-    def visit_BLOB(self, type_, **kw):
-        return "BLOB SUB_TYPE 0"
-
     def _render_string_type(self, type_, name, length_override=None):
-        text = name
-
-        length = (
-            length_override
-            if length_override
-            else getattr(type_, "length", None)
+        firebird_3_or_lower = (
+            self.dialect.server_version_info
+            and self.dialect.server_version_info < (4,)
         )
-        if length is not None:
-            text += f"({length})"
+
+        length = coalesce(
+            length_override,
+            getattr(type_, "length", None),
+        )
+        charset = getattr(type_, "charset", None)
+        collation = getattr(type_, "collation", None)
+
+        if name in ["BINARY", "VARBINARY", "NCHAR", "NVARCHAR"]:
+            charset = None
+            collation = None
+
+        if name == "NVARCHAR":
+            name = "NATIONAL CHARACTER VARYING"
+
+        if firebird_3_or_lower:
+            if name == "BINARY":
+                name = "CHAR"
+                charset = fb_types.BINARY_CHARSET
+                collation = None
+            elif name == "VARBINARY":
+                name = "VARCHAR"
+                charset = fb_types.BINARY_CHARSET
+                collation = None
+
+        text = name
+        if length is None:
+            if name == "VARBINARY" or (
+                name == "VARCHAR" and charset == fb_types.BINARY_CHARSET
+            ):
+                text = "BLOB SUB_TYPE BINARY"
+                charset = fb_types.BINARY_CHARSET
+                collation = None
+            elif name == "VARCHAR":
+                text = "BLOB SUB_TYPE TEXT"
+            elif name == "NATIONAL CHARACTER VARYING":
+                text = "BLOB SUB_TYPE TEXT"
+                charset = fb_types.NATIONAL_CHARSET
+                collation = None
+
+        text = text + (length and "(%d)" % length or "")
+
+        if charset is not None:
+            text += f" CHARACTER SET {charset}"
+
+        if collation is not None:
+            text += f" COLLATE {collation}"
+
+        return text
+
+    def visit_BINARY(self, type_, **kw):
+        return self._render_string_type(type_, "BINARY")
+
+    def visit_VARBINARY(self, type_, **kw):
+        return self._render_string_type(type_, "VARBINARY")
+
+    def visit_TEXT(self, type_, **kw):
+        return self.visit_BLOB(type_, override_subtype=1, **kw)
+
+    def visit_BLOB(self, type_, override_subtype=None, **kw):
+        text = "BLOB"
+
+        subtype = coalesce(override_subtype, getattr(type_, "subtype", None))
+        if subtype is not None:
+            text += " SUB_TYPE TEXT" if subtype == 1 else " SUB_TYPE BINARY"
+
+        segment_size = getattr(type_, "segment_size", None)
+        if segment_size is not None:
+            text += f" SEGMENT SIZE {segment_size}"
 
         charset = getattr(type_, "charset", None)
         if charset is not None:
@@ -327,12 +462,28 @@ class FBTypeCompiler(compiler.GenericTypeCompiler):
 
         return text
 
-    def visit_VARCHAR(self, type_, **kw):
-        if not type_.length:
-            raise exc.CompileError(
-                f"VARCHAR requires a length on dialect {self.dialect.name}."
-            )
-        return super().visit_VARCHAR(type_, **kw)
+    def visit_INT128(self, type_, **kw):
+        return "INT128"
+
+    def visit_FLOAT(self, type_, **kw):
+        return "FLOAT" + (type_.precision and "(%d)" % type_.precision or "")
+
+    def visit_DECFLOAT(self, type_, **kw):
+        return "DECFLOAT" + (
+            type_.precision and "(%d)" % type_.precision or ""
+        )
+
+    def visit_NUMERIC(self, type_, **kw):
+        return "NUMERIC(%(precision)s, %(scale)s)" % {
+            "precision": coalesce(type_.precision, 18),
+            "scale": coalesce(type_.scale, 4),
+        }
+
+    def visit_DECIMAL(self, type_, **kw):
+        return "DECIMAL(%(precision)s, %(scale)s)" % {
+            "precision": coalesce(type_.precision, 18),
+            "scale": coalesce(type_.scale, 4),
+        }
 
     def visit_TIMESTAMP(self, type_, **kw):
         if self.dialect.server_version_info < (4,):
@@ -377,12 +528,45 @@ class FBExecutionContext(default.DefaultExecutionContext):
         )
 
 
+class ReflectedDomain(util.typing.TypedDict):
+    """Represents a reflected domain."""
+
+    name: str
+    """The string name of the underlying data type of the domain."""
+    nullable: bool
+    """Indicates if the domain allows null or not."""
+    default: Optional[str]
+    """The string representation of the default value of this domain
+    or ``None`` if none present.
+    """
+    check: Optional[str]
+    """The constraint defined in the domain, if any.
+    """
+    comment: Optional[str]
+    """The comment of the domain, if any.
+    """
+
+
+class FBInspector(reflection.Inspector):
+    dialect: FBDialect
+
+    def get_domains(
+        self, schema: Optional[str] = None
+    ) -> List[ReflectedDomain]:
+        with self._operation_context() as conn:
+            return self.dialect._load_domains(
+                conn, schema, info_cache=self.info_cache
+            )
+
+
 class FBDialect(default.DefaultDialect):
+    bind_typing = BindTyping.RENDER_CASTS
+
     supports_alter = True
     supports_sane_rowcount = True
     supports_sane_multi_rowcount = False
 
-    supports_native_boolean = True
+    supports_native_boolean = True  # False for Firebird 2.5
     supports_native_decimal = True
 
     supports_schemas = False
@@ -392,10 +576,10 @@ class FBDialect(default.DefaultDialect):
     use_insertmanyvalues = False
 
     supports_comments = True
-    inline_comments = False
     supports_default_values = True
     supports_default_metavalue = True
-    supports_identity_columns = True
+    supports_empty_insert = False
+    supports_identity_columns = True  # False for Firebird 2.5
 
     statement_compiler = FBCompiler
     ddl_compiler = FBDDLCompiler
@@ -403,21 +587,71 @@ class FBDialect(default.DefaultDialect):
     type_compiler = FBTypeCompiler  # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
     preparer = FBIdentifierPreparer
     execution_ctx_cls = FBExecutionContext
+    inspector = FBInspector
 
     update_returning = True
     delete_returning = True
     insert_returning = True
 
-    requires_name_normalize = True
     supports_unicode_binds = True
     supports_empty_insert = False
     supports_is_distinct_from = True
+
+    requires_name_normalize = True
+
+    colspecs = {
+        sa_types.String: fb_types._FBString,
+        sa_types.Numeric: fb_types._FBNumeric,
+        sa_types.Float: fb_types.FBFLOAT,
+        sa_types.Double: fb_types.FBDOUBLE_PRECISION,
+        sa_types.Date: fb_types.FBDATE,
+        sa_types.Time: fb_types.FBTIME,
+        sa_types.DateTime: fb_types.FBTIMESTAMP,
+        sa_types.Interval: fb_types._FBInterval,
+        sa_types.BigInteger: fb_types.FBBIGINT,
+        sa_types.Integer: fb_types.FBINTEGER,
+        sa_types.SmallInteger: fb_types.FBSMALLINT,
+        sa_types.BINARY: fb_types._FBLargeBinary,
+        sa_types.VARBINARY: fb_types._FBLargeBinary,
+        sa_types.LargeBinary: fb_types._FBLargeBinary,
+    }
+
+    # SELECT TRIM(rdb$type_name) FROM rdb$types WHERE rdb$field_name = 'RDB$FIELD_TYPE' ORDER BY 1
+    ischema_names = {
+        "BLOB": fb_types._FBLargeBinary,
+        # "BLOB_ID": unused
+        "BOOLEAN": fb_types.FBBOOLEAN,
+        "CSTRING": fb_types.FBVARCHAR,
+        "DATE": fb_types.FBDATE,
+        "DECFLOAT(16)": fb_types.FBDECFLOAT,
+        "DECFLOAT(34)": fb_types.FBDECFLOAT,
+        "DOUBLE": fb_types.FBDOUBLE_PRECISION,
+        "FLOAT": fb_types.FBFLOAT,
+        "INT128": fb_types.FBINT128,
+        "INT64": fb_types.FBBIGINT,
+        "LONG": fb_types.FBINTEGER,
+        # "QUAD": unused,
+        "SHORT": fb_types.FBSMALLINT,
+        "TEXT": fb_types.FBCHAR,
+        "TIME": fb_types.FBTIME,
+        "TIME WITH TIME ZONE": fb_types.FBTIME,
+        "TIMESTAMP": fb_types.FBTIMESTAMP,
+        "TIMESTAMP WITH TIME ZONE": fb_types.FBTIMESTAMP,
+        "VARYING": fb_types.FBVARCHAR,
+    }
 
     construct_arguments = [
         (
             sa_schema.Table,
             {
                 "on_commit": None,
+            },
+        ),
+        (
+            sa_schema.Index,
+            {
+                "descending": None,
+                "where": None,
             },
         ),
     ]
@@ -429,32 +663,19 @@ class FBDialect(default.DefaultDialect):
 
         if self.server_version_info < (3,):
             # Firebird 2.5
+            from .fb_info25 import MAX_IDENTIFIER_LENGTH, RESERVED_WORDS
+
             self.supports_identity_columns = False
             self.supports_native_boolean = False
-
-            from .fb_info25 import (
-                MAX_IDENTIFIER_LENGTH,
-                RESERVED_WORDS,
-                ISCHEMA_NAMES,
-            )
         elif self.server_version_info < (4,):
             # Firebird 3.0
-            from .fb_info30 import (
-                MAX_IDENTIFIER_LENGTH,
-                RESERVED_WORDS,
-                ISCHEMA_NAMES,
-            )
+            from .fb_info30 import MAX_IDENTIFIER_LENGTH, RESERVED_WORDS
         else:
             # Firebird 4.0 or higher
-            from .fb_info40 import (
-                MAX_IDENTIFIER_LENGTH,
-                RESERVED_WORDS,
-                ISCHEMA_NAMES,
-            )
+            from .fb_info40 import MAX_IDENTIFIER_LENGTH, RESERVED_WORDS
 
         self.max_identifier_length = MAX_IDENTIFIER_LENGTH
         self.preparer.reserved_words = RESERVED_WORDS
-        self.ischema_names = ISCHEMA_NAMES
 
     @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
@@ -485,7 +706,7 @@ class FBDialect(default.DefaultDialect):
             FROM rdb$relations
             WHERE rdb$relation_type IN (0 /* TABLE */)
               AND COALESCE(rdb$system_flag, 0) = 0
-            ORDER BY rdb$relation_name
+            ORDER BY 1
         """
 
         return [
@@ -501,7 +722,7 @@ class FBDialect(default.DefaultDialect):
             WHERE rdb$relation_type IN (4 /* TEMPORARY_TABLE_PRESERVE */, 
                                         5 /* TEMPORARY_TABLE_DELETE */)
               AND COALESCE(rdb$system_flag, 0) = 0
-            ORDER BY rdb$relation_name
+            ORDER BY 1
         """
         return [
             self.normalize_name(row.relation_name)
@@ -515,7 +736,7 @@ class FBDialect(default.DefaultDialect):
             FROM rdb$relations
             WHERE rdb$relation_type IN (1 /* VIEW */)
               AND COALESCE(rdb$system_flag, 0) = 0
-            ORDER BY rdb$relation_name
+            ORDER BY 1
         """
         return [
             self.normalize_name(row.relation_name)
@@ -555,98 +776,124 @@ class FBDialect(default.DefaultDialect):
     def get_columns(  # noqa: C901
         self, connection, table_name, schema=None, **kw
     ):
-        is_firebird_25 = self.server_version_info < (3,)
-
         columns_query = """
-            SELECT TRIM(r.rdb$field_name) AS fname,
-                   r.rdb$null_flag AS null_flag,
-                   t.rdb$type_name AS ftype,
-                   f.rdb$field_sub_type AS stype,
-                   f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
-                   f.rdb$field_precision AS fprec,
-                   f.rdb$field_scale AS fscale,
-                   COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
-                   TRIM(r.rdb$description) AS fcomment,
-                   f.rdb$computed_source AS computed_source,
-                   r.rdb$identity_type AS identity_type,
-                   g.rdb$initial_value AS identity_start,
-                   g.rdb$generator_increment AS identity_increment
-            FROM rdb$relation_fields r
+            SELECT TRIM(rf.rdb$field_name) AS field_name,
+                   COALESCE(rf.rdb$null_flag, f.rdb$null_flag) AS null_flag,
+                   TRIM(t.rdb$type_name) AS field_type,
+                   f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS field_length,
+                   f.rdb$field_precision AS field_precision,
+                   f.rdb$field_scale * -1 AS field_scale,
+                   f.rdb$field_sub_type AS field_sub_type,
+                   f.rdb$segment_length AS segment_length,
+                   TRIM(cs.rdb$character_set_name) as character_set_name,
+                   TRIM(cl.rdb$collation_name) as collation_name,
+                   COALESCE(rf.rdb$default_source, f.rdb$default_source) AS default_source,
+                   TRIM(rf.rdb$description) AS description,
+                   f.rdb$computed_source AS computed_source
+                  ,rf.rdb$identity_type AS identity_type,                      -- [fb3+]
+                   g.rdb$initial_value AS initial_value,                       -- [fb3+]
+                   g.rdb$generator_increment AS generator_increment            -- [fb3+]
+            FROM rdb$relation_fields rf
                  JOIN rdb$fields f
-                   ON f.rdb$field_name = r.rdb$field_source
+                   ON f.rdb$field_name = rf.rdb$field_source
                  JOIN rdb$types t
                    ON t.rdb$type = f.rdb$field_type 
                   AND t.rdb$field_name = 'RDB$FIELD_TYPE'
                  LEFT JOIN rdb$character_sets cs
                         ON cs.rdb$character_set_id = f.rdb$character_set_id
-                 LEFT JOIN rdb$generators g
-                        ON g.rdb$generator_name = r.rdb$generator_name
-            WHERE f.rdb$system_flag = 0 
-              AND r.rdb$relation_name = ?
-            ORDER BY r.rdb$field_position
+                 LEFT JOIN rdb$collations cl
+                        ON cl.rdb$collation_id = rf.rdb$collation_id
+                       AND cl.rdb$character_set_id = cs.rdb$character_set_id
+                 LEFT JOIN rdb$generators g                                    -- [fb3+]
+                        ON g.rdb$generator_name = rf.rdb$generator_name        -- [fb3+]
+            WHERE COALESCE(f.rdb$system_flag, 0) = 0
+              AND rf.rdb$relation_name = ?
+            ORDER BY rf.rdb$field_position
         """
 
-        if is_firebird_25:
+        is_firebird_25 = self.server_version_info < (3,)
+        has_identity_columns = not is_firebird_25
+        if not has_identity_columns:
             # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
-            columns_query = """
-                SELECT TRIM(r.rdb$field_name) AS fname,
-                       r.rdb$null_flag AS null_flag,
-                       t.rdb$type_name AS ftype,
-                       f.rdb$field_sub_type AS stype,
-                       f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS flen,
-                       f.rdb$field_precision AS fprec,
-                       f.rdb$field_scale AS fscale,
-                       COALESCE(r.rdb$default_source, f.rdb$default_source) AS fdefault,
-                       TRIM(r.rdb$description) AS fcomment,
-                       f.rdb$computed_source AS computed_source
-                FROM rdb$relation_fields r
-                     JOIN rdb$fields f 
-                       ON f.rdb$field_name = r.rdb$field_source
-                     JOIN rdb$types t
-                       ON t.rdb$type = f.rdb$field_type
-                      AND t.rdb$field_name = 'RDB$FIELD_TYPE'
-                      LEFT JOIN rdb$character_sets cs
-                             ON cs.rdb$character_set_id = f.rdb$character_set_id
-                WHERE f.rdb$system_flag = 0
-                  AND r.rdb$relation_name = ?
-                ORDER BY r.rdb$field_position
-            """
+            #   Remove query lines containing [fb3+]
+            lines = str.splitlines(columns_query)
+            filtered = filter(lambda x: "[fb3+]" not in x, lines)
+            columns_query = "\r\n".join(list(filtered))
 
         tablename = self.denormalize_name(table_name)
         c = list(connection.exec_driver_sql(columns_query, (tablename,)))
 
         cols = []
         for row in c:
-            name = self.normalize_name(row.fname)
+            orig_colname = row.field_name
+            colname = self.normalize_name(orig_colname)
 
             # Extract data type
-            colspec = row.ftype.rstrip()
-            coltype = self.ischema_names.get(colspec)
-            if coltype is None:
+            colclass = self.ischema_names.get(row.field_type)
+            if colclass is None:
                 util.warn(
-                    "Did not recognize type '%s' of column '%s'"
-                    % (colspec, name)
+                    "Unknown type '%s' in column '%s'. Check FBDialect.ischema_names."
+                    % (row.field_type, colname)
                 )
-                coltype = sqltypes.NULLTYPE
-            elif issubclass(coltype, Integer) and row.fprec != 0:
-                coltype = NUMERIC(precision=row.fprec, scale=row.fscale * -1)
-            elif colspec in ("VARYING", "CSTRING"):
-                coltype = coltype(row.flen)
-            elif colspec == "TEXT":
-                coltype = TEXT(row.flen)
-            elif colspec == "BLOB":
-                coltype = TEXT() if row.stype == 1 else BLOB()
+                coltype = sa_types.NULLTYPE
+            elif issubclass(colclass, fb_types._FBString):
+                if row.character_set_name == fb_types.BINARY_CHARSET:
+                    if colclass == fb_types.FBCHAR:
+                        colclass = fb_types.FBBINARY
+                    elif colclass == fb_types.FBVARCHAR:
+                        colclass = fb_types.FBVARBINARY
+                if row.character_set_name == fb_types.NATIONAL_CHARSET:
+                    if colclass == fb_types.FBCHAR:
+                        colclass = fb_types.FBNCHAR
+                    elif colclass == fb_types.FBVARCHAR:
+                        colclass = fb_types.FBNVARCHAR
+
+                coltype = colclass(
+                    length=row.field_length,
+                    charset=row.character_set_name,
+                    collation=row.collation_name,
+                )
+            elif issubclass(colclass, fb_types._FBNumeric):
+                # FLOAT, DOUBLE PRECISION or DECFLOAT
+                coltype = colclass(row.field_precision)
+            elif issubclass(colclass, fb_types._FBInteger):
+                # NUMERIC / DECIMAL types are stored as INTEGER types
+                if row.field_sub_type == 0:
+                    # INTEGERs
+                    coltype = colclass()
+                elif row.field_sub_type == 1:
+                    # NUMERIC
+                    coltype = fb_types.FBNUMERIC(
+                        precision=row.field_precision, scale=row.field_scale
+                    )
+                else:
+                    # DECIMAL
+                    coltype = fb_types.FBDECIMAL(
+                        precision=row.field_precision, scale=row.field_scale
+                    )
+            elif issubclass(colclass, sa_types.DateTime):
+                has_timezone = "WITH TIME ZONE" in row.field_type
+                coltype = colclass(timezone=has_timezone)
+            elif issubclass(colclass, fb_types._FBLargeBinary):
+                if row.field_sub_type == 1:
+                    coltype = fb_types.FBTEXT(
+                        row.segment_length,
+                        row.character_set_name,
+                        row.collation_name,
+                    )
+                else:
+                    coltype = fb_types.FBBLOB(row.segment_length)
             else:
-                coltype = coltype()
+                coltype = colclass()
 
             # Extract default value
             defvalue = None
-            if row.fdefault is not None:
+            if row.default_source is not None:
                 # the value comes down as "DEFAULT 'value'": there may be
                 # more than one whitespace around the "DEFAULT" keyword
                 # and it may also be lower case
                 # (see also http://tracker.firebirdsql.org/browse/CORE-356)
-                defexpr = row.fdefault.lstrip()
+                defexpr = row.default_source.lstrip()
                 assert defexpr[:8].rstrip().upper() == "DEFAULT", (
                     "Unrecognized default value: %s" % defexpr
                 )
@@ -654,32 +901,37 @@ class FBDialect(default.DefaultDialect):
                 defvalue = defvalue if defvalue != "NULL" else None
 
             col_d = {
-                "name": name,
+                "name": colname,
                 "type": coltype,
                 "nullable": not bool(row.null_flag),
                 "default": defvalue,
             }
 
-            orig_colname = row.fname
             if orig_colname.lower() == orig_colname:
                 col_d["quote"] = True
 
             if row.computed_source is not None:
                 col_d["computed"] = {"sqltext": row.computed_source}
 
-            if row.fcomment is not None:
-                col_d["comment"] = row.fcomment
+            if row.description is not None:
+                col_d["comment"] = row.description
 
-            if (not is_firebird_25) and row.identity_type is not None:
-                col_d["identity"] = {
-                    "always": row.identity_type == 0,
-                    "start": row.identity_start,
-                    "increment": row.identity_increment,
-                }
+            if has_identity_columns:
+                if row.identity_type is not None:
+                    col_d["identity"] = {
+                        "always": row.identity_type == 0,
+                        "start": row.initial_value,
+                        "increment": row.generator_increment,
+                    }
 
-            if not self.using_sqlalchemy2:
-                # For SQLAlchemy 1.4 compatibility only. Unneeded in 2.0.
-                col_d["autoincrement"] = "auto"
+                col_d["autoincrement"] = "identity" in col_d
+            else:
+                # For Firebird 2.5
+
+                # A backend is better off not returning "autoincrement" at all,
+                # instead of potentially returning "False" for an auto-incrementing
+                # primary key column. (see test_autoincrement_col)
+                pass
 
             cols.append(col_d)
 
@@ -698,7 +950,7 @@ class FBDialect(default.DefaultDialect):
     @reflection.cache
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
         pk_query = """
-            SELECT TRIM(se.rdb$field_name) AS fname
+            SELECT TRIM(rc.rdb$constraint_name) AS cname, TRIM(se.rdb$field_name) AS fname
             FROM rdb$relation_constraints rc
                  JOIN rdb$index_segments se
                    ON se.rdb$index_name = rc.rdb$index_name
@@ -709,9 +961,15 @@ class FBDialect(default.DefaultDialect):
         tablename = self.denormalize_name(table_name)
         c = connection.exec_driver_sql(pk_query, (tablename,))
 
-        pkfields = [self.normalize_name(r.fname) for r in c.fetchall()]
+        rows = c.fetchall()
+        pkfields = (
+            [self.normalize_name(r.fname) for r in rows] if rows else None
+        )
         if pkfields:
-            return {"constrained_columns": pkfields, "name": None}
+            return {
+                "constrained_columns": pkfields,
+                "name": self.normalize_name(rows[0].cname) if rows else None,
+            }
 
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(table_name)
@@ -789,11 +1047,19 @@ class FBDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
-        indexes_query = """
+        condition_source_expr = "TRIM(SUBSTRING(ix.rdb$condition_source FROM 6 FOR CHAR_LENGTH(ix.rdb$condition_source) - 5))"
+
+        if self.server_version_info < (5,):
+            # Firebird 4 and lower doesn't have RDB$CONDITION_SOURCE (for partial indices)
+            condition_source_expr = "CAST(NULL AS BLOB SUB_TYPE TEXT)"
+
+        indexes_query = f"""
             SELECT TRIM(ix.rdb$index_name) AS index_name,
                    ix.rdb$unique_flag AS unique_flag,
+                   ix.rdb$index_type AS descending_flag,
                    TRIM(ic.rdb$field_name) AS field_name,
-                   TRIM(ix.rdb$expression_source) expression_source
+                   TRIM(ix.rdb$expression_source) expression_source,
+                   {condition_source_expr} condition_source
             FROM rdb$indices ix
                 LEFT OUTER JOIN rdb$index_segments ic
                   ON ic.rdb$index_name = ix.rdb$index_name
@@ -818,13 +1084,16 @@ class FBDialect(default.DefaultDialect):
             if "name" not in indexrec:
                 indexrec["name"] = self.normalize_name(row.index_name)
                 indexrec["column_names"] = []
-                indexrec["dialect_options"] = {}
                 indexrec["unique"] = bool(row.unique_flag)
                 if row.expression_source is not None:
                     expr = row.expression_source[
                         1:-1
                     ]  # Remove outermost parenthesis added by Firebird
                     indexrec["expressions"] = expr.split(EXPRESSION_SEPARATOR)
+                indexrec["dialect_options"] = {
+                    "firebird_descending": bool(row.descending_flag),
+                    "firebird_where": row.condition_source,
+                }
 
             indexrec["column_names"].append(
                 self.normalize_name(row.field_name)
@@ -878,9 +1147,9 @@ class FBDialect(default.DefaultDialect):
                    ON rc.rdb$index_name = se.rdb$index_name
                  JOIN rdb$relations r
                    ON r.rdb$relation_name = rc.rdb$relation_name
-                  AND r.rdb$system_flag = 0
-            WHERE rc.rdb$constraint_type = 'UNIQUE' AND
-                  r.rdb$relation_name = ?
+                  AND COALESCE(r.rdb$system_flag, 0) = 0
+            WHERE rc.rdb$constraint_type = 'UNIQUE'
+              AND r.rdb$relation_name = ?
             ORDER BY rc.rdb$constraint_name, se.rdb$field_position
         """
         tablename = self.denormalize_name(table_name)
@@ -937,7 +1206,7 @@ class FBDialect(default.DefaultDialect):
                       tr.rdb$trigger_type = 1 /* BEFORE UPDATE */
             WHERE rc.rdb$constraint_type = 'CHECK' AND
                   rc.rdb$relation_name = ?
-            ORDER BY rc.rdb$constraint_name
+            ORDER BY 1
         """
         tablename = self.denormalize_name(table_name)
         c = connection.exec_driver_sql(check_constraints_query, (tablename,))
@@ -969,19 +1238,41 @@ class FBDialect(default.DefaultDialect):
             else []
         )
 
+    @reflection.cache
+    def _load_domains(self, connection, schema=None, **kw):
+        domains_query = """
+            SELECT TRIM(f.rdb$field_name) AS fname,
+                   f.rdb$null_flag AS null_flag,
+                   NULLIF(TRIM(SUBSTRING(f.rdb$default_source FROM 8 FOR CHAR_LENGTH(f.rdb$default_source) - 7)), 'NULL') fdefault,
+                   TRIM(SUBSTRING(f.rdb$validation_source FROM 8 FOR CHAR_LENGTH(f.rdb$validation_source) - 8)) fcheck,
+                   TRIM(f.rdb$description) fcomment
+            FROM rdb$fields f
+            WHERE COALESCE(f.rdb$system_flag, 0) = 0
+              AND f.rdb$field_name NOT STARTING WITH 'RDB$'
+            ORDER BY 1
+        """
+        result = connection.exec_driver_sql(domains_query)
+        return [
+            {
+                "name": self.normalize_name(row["fname"]),
+                "nullable": not bool(row.null_flag),
+                "default": row["fdefault"],
+                "check": row["fcheck"],
+                "comment": row["fcomment"],
+            }
+            for row in result.mappings()
+        ]
+
     def is_disconnect(self, e, connection, cursor):
-        if isinstance(
-            e, (self.dbapi.OperationalError, self.dbapi.ProgrammingError)
-        ):
-            # TODO: Review these messages for Firebird 3+
-            for msg in (
-                "Error writing data to the connection",
-                "Unable to complete network request to host",
-                "Invalid connection state",
-                "Invalid cursor state",
-                "connection shutdown",
-            ):
-                if msg in str(e):
-                    return True
+        is_fdb = self.driver == "fdb"
+        if isinstance(e, (self.dbapi.DatabaseError)):
+            sqlcode = e.args[1] if is_fdb else e.sqlcode
+            gdscode = e.args[2] if is_fdb else e.gds_codes[0]
+            return sqlcode == -902 and gdscode in (
+                335544726,  # net_read_err     Error reading data from the connection
+                335544727,  # net_write_err    Error writing data to the connection
+                335544721,  # network_error    Unable to complete network request to host "@1"
+                335544856,  # att_shutdown     Connection shutdown
+            )
 
         return False

@@ -3,30 +3,13 @@
     Variables:
         MAX_IDENTIFIER_LENGTH -> int
         RESERVED_WORDS -> set
-        ISCHEMA_NAMES -> dict
 
 .._Firebird 2.5:
     https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-intro
 
 """
 
-from packaging import version
-
-from sqlalchemy import __version__ as SQLALCHEMY_VERSION
-from sqlalchemy.types import BIGINT
-from sqlalchemy.types import BLOB
-from sqlalchemy.types import DATE
-from sqlalchemy.types import FLOAT
-from sqlalchemy.types import INTEGER
-from sqlalchemy.types import NUMERIC
-from sqlalchemy.types import SMALLINT
-from sqlalchemy.types import TEXT
-from sqlalchemy.types import TIME
-from sqlalchemy.types import TIMESTAMP
-
-from .types import CHAR
-from .types import VARCHAR
-from .types import DOUBLE_PRECISION
+import sqlalchemy.types as sa_types
 
 # https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-datatypes
 # "Length cannot exceed 31 characters."
@@ -205,36 +188,4 @@ RESERVED_WORDS = {
     "while",
     "with",
     "year",
-}
-
-# https://www.firebirdsql.org/file/documentation/html/en/refdocs/fblangref25/firebird-25-language-reference.html#fblangref25-datatypes
-ISCHEMA_NAMES = {
-    "SMALLINT": SMALLINT,
-    "INT": INTEGER,
-    "INTEGER": INTEGER,
-    "BIGINT": BIGINT,
-    "FLOAT": FLOAT,
-    "DOUBLE PRECISION": FLOAT
-    if version.parse(SQLALCHEMY_VERSION).major < 2
-    else DOUBLE_PRECISION,
-    "DATE": DATE,
-    "TIME": TIME,
-    "TIMESTAMP": TIMESTAMP,
-    "DECIMAL": NUMERIC,
-    "NUMERIC": NUMERIC,
-    "VARCHAR": VARCHAR,
-    "CHAR VARYING": VARCHAR,
-    "CHARACTER VARYING": VARCHAR,
-    "CHAR": CHAR,
-    "CHARACTER": CHAR,
-    # Compatibility
-    "SHORT": SMALLINT,
-    "LONG": INTEGER,
-    "QUAD": FLOAT,
-    "TEXT": TEXT,
-    "INT64": BIGINT,
-    "DOUBLE": FLOAT,
-    "VARYING": VARCHAR,
-    "CSTRING": CHAR,
-    "BLOB": BLOB,
 }

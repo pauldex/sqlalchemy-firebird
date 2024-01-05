@@ -1,39 +1,18 @@
-"""Provide Firebird 4.0 specific information.
+"""Provide Firebird 4.0+ specific information.
 
     Variables:
         MAX_IDENTIFIER_LENGTH -> int
         RESERVED_WORDS -> set
-        ISCHEMA_NAMES -> dict
 
 .._Firebird 4.0:
-    https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-intro
+    https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html
 
 .._Firebird 5.0:
-    https://www.firebirdsql.org/file/documentation/release_notes/Firebird-5.0.0-Beta1-ReleaseNotes.pdf
+    https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref50/firebird-50-language-reference.html
 
 """
 
-from packaging import version
-
-from sqlalchemy import __version__ as SQLALCHEMY_VERSION
-from sqlalchemy.types import BIGINT
-from sqlalchemy.types import BINARY
-from sqlalchemy.types import BLOB
-from sqlalchemy.types import BOOLEAN
-from sqlalchemy.types import DATE
-from sqlalchemy.types import FLOAT
-from sqlalchemy.types import INTEGER
-from sqlalchemy.types import NUMERIC
-from sqlalchemy.types import REAL
-from sqlalchemy.types import SMALLINT
-from sqlalchemy.types import TEXT
-from sqlalchemy.types import TIME
-from sqlalchemy.types import TIMESTAMP
-from sqlalchemy.types import VARBINARY
-
-from .types import CHAR
-from .types import VARCHAR
-from .types import DOUBLE_PRECISION
+import sqlalchemy.types as sa_types
 
 # https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html
 # For Firebird version 4.0 and greater, the "...maximum identifier length is 63 characters
@@ -262,47 +241,4 @@ RESERVED_WORDS = {
     "with",
     "without",
     "year",
-}
-
-# https://firebirdsql.org/file/documentation/html/en/refdocs/fblangref40/firebird-40-language-reference.html#fblangref40-datatypes-syntax-scalar
-ISCHEMA_NAMES = {
-    "SMALLINT": SMALLINT,
-    "INT": INTEGER,
-    "INTEGER": INTEGER,
-    "BIGINT": BIGINT,
-    "INT128": BIGINT,  # TODO: INT128
-    "REAL": REAL,
-    "FLOAT": FLOAT,
-    "DOUBLE PRECISION": FLOAT
-    if version.parse(SQLALCHEMY_VERSION).major < 2
-    else DOUBLE_PRECISION,
-    "DECFLOAT": FLOAT,  # TODO: DECFLOAT
-    "BOOLEAN": BOOLEAN,
-    "DATE": DATE,
-    "TIME": TIME,
-    "TIME WITH TIME ZONE": TIME,
-    "TIME WITHOUT TIME ZONE": TIME,
-    "TIMESTAMP": TIMESTAMP,
-    "TIMESTAMP WITH TIME ZONE": TIMESTAMP,
-    "TIMESTAMP WITHOUT TIME ZONE": TIMESTAMP,
-    "DECIMAL": NUMERIC,
-    "NUMERIC": NUMERIC,
-    "VARCHAR": VARCHAR,
-    "CHAR VARYING": VARCHAR,
-    "CHARACTER VARYING": VARCHAR,
-    "CHAR": CHAR,
-    "CHARACTER": CHAR,
-    "BINARY": BINARY,
-    "VARBINARY": VARBINARY,
-    "BINARY VARYING": VARBINARY,
-    # Compatibility
-    "SHORT": SMALLINT,
-    "LONG": INTEGER,
-    "QUAD": FLOAT,
-    "TEXT": TEXT,
-    "INT64": BIGINT,
-    "DOUBLE": FLOAT,
-    "VARYING": VARCHAR,
-    "CSTRING": CHAR,
-    "BLOB": BLOB,
 }

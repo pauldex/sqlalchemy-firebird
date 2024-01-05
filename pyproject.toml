@@ -3,7 +3,6 @@ addopts = "--tb native -v -r fxX --maxfail=100 -p no:warnings --log-info=sqlalch
 
 markers = [
     "backend: mark test as for the backend",
-    "hanging: tests hanging during a full test suite run",
 ]
 
 python_files = "test/*test_*.py"
@@ -22,7 +21,7 @@ exclude = '''
 '''
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -70,6 +69,10 @@ Tracker = "https://github.com/pauldex/sqlalchemy-firebird/issues"
 "firebird" = "sqlalchemy_firebird.firebird:FBDialect_firebird"
 "firebird.fdb" = "sqlalchemy_firebird.fdb:FBDialect_fdb"
 "firebird.firebird" = "sqlalchemy_firebird.firebird:FBDialect_firebird"
+
+[project.scripts]
+prepare-test-environment = "sqlalchemy_firebird:infrastructure.prepare_test_environment"
+rebuild-test-databases = "sqlalchemy_firebird:infrastructure.rebuild_test_databases"
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst"], content-type = "text/x-rst"}
