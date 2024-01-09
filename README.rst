@@ -10,7 +10,8 @@ An external SQLAlchemy dialect for Firebird
 
 ----
 
-| Those who want to use the open source `Firebird <https://firebirdsql.org/en/start/>`_ database server with `Python <https://www.python.org>`_ using `SQLAlchemy <https://www.sqlalchemy.org>`_ need to provide a dialect that SQLAlchemy can use to communicate to the database, because Firebird is not among the included dialects.
+Those who want to use the open source `Firebird <https://firebirdsql.org/en/start/>`_ database server with `Python <https://www.python.org>`_ using `SQLAlchemy <https://www.sqlalchemy.org>`_ need to provide a dialect that SQLAlchemy can use to communicate to the database, because Firebird is not among the included dialects.
+
 This package provides a Firebird dialect for SQLAlchemy using the Python Database API 2.0 compliant support provided from  either `firebird-driver <https://firebird-driver.readthedocs.io/en/latest>`_ or `fdb <https://fdb.readthedocs.io/en/latest>`_.
 
 ----
@@ -42,7 +43,7 @@ The following information is needed to make the connection string:
 - <port> - Firebird default is '3050'
 - <database_path> - location of the database file
 - <charset> - character set used by the database file, Firebird default is UTF8
-- <client_library_path> - path to the firebird client library file.  Linux needs 'fbclient.so', Windows uses fblient.dll.  This is only needed when using the embedded server or a remotely installed server.
+- <client_library_path> - path to the firebird client library file.  Linux needs 'libfbclient.so', Windows uses fblient.dll.  This is only needed when using the embedded server or a remotely installed server.
 
 Connection Strings
 
@@ -53,9 +54,10 @@ The template for a Firebird connection string looks like this (using the informa
 
     firebird+<driver_name>://<username>:<password>@<host>:<port>/<database_path>[?charset=UTF8&key=value&key=value...]
 
-Example connection strings from a configuration file:
+Note the only differences between the Linux and Windows versions of the following example configuration strings is that the Linux paths begin with '//home/testuser' while the Windows paths begin with 'c:/':
 
-- Firebird server installed locally using the default port
+
+- The simplest configuration string is for the Firebird server installed locally using the default port.
 
 ::
 
@@ -71,27 +73,15 @@ Example connection strings from a configuration file:
     # Use the firebird-driver driver (Python 3.8+, Firebird server 3.0 or greater)
     firebird+firebird://sysdba:masterkey@localhost/c:/projects/databases/my_project.fdb
 
-- Firebird server installed locally using port 3040
-
-::
-
-    [Linux]
-    # Use the firebird-driver driver (Python 3.8+)
-    firebird+firebird://sysdba:masterkey@localhost:3040///home/testuser/projects/databases/my_project.fdb
-
-    [Windows]
-    # Use the firebird-driver driver (Python 3.8+)
-    firebird+firebird://sysdba:masterkey@localhost:3040/c:/projects/databases/my_project.fdb
-
 - Firebird server installed remotely using port 3040 and specifying the character set to use
 
 ::
 
     [Linux]
     # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
-    firebird+fdb://sysdba:masterkey@localhost:3040///home/testuser/databases/my_project.fdb?charset=UTF8&fb_library_name=//home/testuser/dbclient/fbclient.so
+    firebird+fdb://sysdba:masterkey@localhost:3040///home/testuser/databases/my_project.fdb?charset=UTF8&fb_library_name=//home/testuser/dbclient/lib/libfbclient.so
     # Use the firebird-driver driver (Python 3.8+)
-    firebird+firebird://sysdba:masterkey@localhost:3040///home/testuser/databases/my_project.fdb?charset=UTF8&fb_client_library=//home/testuser/dbclient/fbclient.so
+    firebird+firebird://sysdba:masterkey@localhost:3040///home/testuser/databases/my_project.fdb?charset=UTF8&fb_client_library=//home/testuser/dbclient/lib/libfbclient.so
 
     [Windows]
     # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
@@ -105,9 +95,9 @@ Example connection strings from a configuration file:
 
     [Linux]
     # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
-    firebird+fdb://sysdba@///home/testuser/databases/my_project.fdb?charset=UTF8&fb_library_name=//home/testuser/dbserver/fbclient.so
+    firebird+fdb://sysdba@///home/testuser/databases/my_project.fdb?charset=UTF8&fb_library_name=//home/testuser/dbserver/lib/libfbclient.so
     # Use the firebird-driver driver (Python 3.8+)
-    firebird+firebird://sysdba@///home/testuser/databases/my_project.fdb?charset=UTF8&fb_client_library=//home/testuser/dbserver/fbclient.so
+    firebird+firebird://sysdba@///home/testuser/databases/my_project.fdb?charset=UTF8&fb_client_library=//home/testuser/dbserver/lib/libfbclient.so
 
     [Windows]
     # Use the fdb driver (Python 3.6/3.7, or Firebird server 2.5.9)
@@ -120,7 +110,7 @@ Example connection strings from a configuration file:
 
 **How to use**
 
-For example, to connect to an embedded Firebird server using firebird-driver:
+For example, to connect to an embedded Firebird server using firebird-driver on Windows:
 
 ::
 
